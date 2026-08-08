@@ -2,452 +2,1109 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
-<title>Hummus Fit — Yield Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Hummus Fit Production Hub</title>
 <style>
   :root{
-    --teal:#00877D; --teal-dark:#046b63; --orange:#F05A28; --orange-dark:#d6491d;
-    --navy:#182233; --cream:#FAF6F0; --card:#ffffff; --gray:#8a93a3;
-    --shadow: 0 10px 30px rgba(24,34,51,0.10), 0 2px 6px rgba(24,34,51,0.06);
-    --shadow-lg: 0 20px 50px rgba(24,34,51,0.18), 0 6px 14px rgba(24,34,51,0.10);
+    --green:#1f7a3f;
+    --green-dark:#155c2e;
+    --orange:#e8672c;
+    --orange-dark:#c1501c;
+    --blue:#2563a8;
+    --gray-bg:#0f1115;
+    --panel:#171a21;
+    --panel2:#1f232c;
+    --border:#2b303b;
+    --text:#f3f4f6;
+    --text-dim:#9aa1ad;
+    --yellow:#e0b400;
+    --red:#c0392b;
+    --radius:16px;
   }
-  *{box-sizing:border-box;} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(180deg,var(--cream) 0%,#fff 400px);color:var(--navy);padding-bottom:100px;-webkit-tap-highlight-color:transparent;}
-  header{position:sticky;top:0;z-index:50;background:rgba(250,246,240,0.92);backdrop-filter:blur(10px);border-bottom:1px solid rgba(24,34,51,0.06);padding:14px 16px 10px;}
-  .brandrow{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-  .brandname{font-weight:800;font-size:19px;letter-spacing:-.02em;}
-  .brandname .fit{color:var(--orange);} .brandname .hummus{color:var(--teal);}
-  .subtitle{font-size:12px;color:var(--gray);}
-  .autosave-pill{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;color:var(--gray);}
-  .autosave-dot{width:7px;height:7px;border-radius:50%;background:#c9d1d9;transition:background .3s;}
-  .autosave-dot.pulse{background:#4ade80;}
-  .headerRight{display:flex;align-items:center;gap:10px;}
-  .tabs{display:flex;gap:8px;margin-top:12px;}
-  .tab{flex:1;text-align:center;padding:10px;border-radius:999px;font-weight:800;font-size:13px;cursor:pointer;background:#fff;box-shadow:var(--shadow);color:var(--navy);}
-  .tab.active{background:var(--teal);color:#fff;}
-  main{padding:16px;max-width:720px;margin:0 auto;}
-  .btn{border:none;border-radius:999px;padding:12px 18px;font-weight:800;font-size:14px;cursor:pointer;box-shadow:var(--shadow);}
-  .btn-primary{background:var(--teal);color:#fff;} .btn-orange{background:var(--orange);color:#fff;}
-  .btn-secondary{background:#fff;color:var(--navy);border:1.5px solid rgba(24,34,51,.12);}
-  .btn-full{width:100%;}
-  .row2{display:flex;gap:10px;}
-  .meal-card{background:var(--card);border-radius:22px;box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden;}
-  .meal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;cursor:pointer;gap:10px;}
-  .meal-avatar{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,var(--teal),var(--teal-dark));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;flex:0 0 auto;}
-  .meal-title .name{font-weight:800;font-size:15px;}
-  .meal-title .meta{font-size:11px;color:var(--gray);font-weight:600;}
-  .meal-body{padding:0 18px 18px;}
-  .comp{background:#F8F6F2;border-radius:16px;padding:12px;margin-bottom:10px;}
-  .comp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-weight:800;font-size:13.5px;}
-  .comp-stat{font-size:11px;color:var(--gray);font-weight:700;}
-  .inline-form{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-top:6px;}
-  input, select, textarea{border:1.5px solid rgba(24,34,51,.12);border-radius:10px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit;}
-  input:focus, select:focus, textarea:focus{border-color:var(--teal);}
-  .miniBtn{background:var(--teal);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12px;padding:8px 10px;cursor:pointer;}
-  .miniBtn.orange{background:var(--orange);}
-  .yieldTag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:#E7F5F2;color:var(--teal-dark);}
-  .gapTag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:#FFF1E8;color:var(--orange-dark);}
-  .draftTag{font-size:10px;font-weight:800;padding:3px 7px;border-radius:999px;background:#FFF7ED;color:#9a5b1a;}
-  .section-label{font-size:11px;font-weight:800;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;}
-  .calc-card{background:#fff;border-radius:22px;box-shadow:var(--shadow);padding:18px;}
-  .result{background:linear-gradient(135deg,#F8F6F2,#F1EEE7);border-radius:16px;padding:14px;margin-top:14px;}
-  .result-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(24,34,51,.06);font-size:13.5px;}
-  .result-row:last-child{border-bottom:none;}
-  .result-row .val{font-weight:900;color:var(--teal-dark);}
-  .headline{font-size:26px;font-weight:900;letter-spacing:-.02em;margin:6px 4px 14px;}
-  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:12px 20px;border-radius:999px;font-weight:700;font-size:13px;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:.25s;z-index:100;}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-  .modal-bg{position:fixed;inset:0;background:rgba(24,34,51,.5);z-index:80;display:none;align-items:flex-end;justify-content:center;}
-  .modal-bg.show{display:flex;}
-  .modal{background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:520px;padding:22px 20px 28px;max-height:85vh;overflow-y:auto;}
-  .modal h3{margin:0 0 4px;font-size:18px;font-weight:900;}
-  .xbtn{background:#F1EEE7;border:none;border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;color:var(--gray);}
-  .warn{background:#FFF7ED;border:1px solid #FFE4C7;border-radius:12px;padding:10px 12px;font-size:12px;color:#9a5b1a;margin-top:12px;}
-  .empty{text-align:center;color:var(--gray);padding:40px 20px;}
-  .toggle-link{background:none;border:none;color:var(--teal-dark);font-weight:800;font-size:11.5px;cursor:pointer;padding:2px 0;margin-top:4px;}
-  .label-block{display:none;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(24,34,51,.12);}
-  .label-block.open{display:block;}
-  .label-block .lbl{font-size:10px;font-weight:800;color:var(--gray);margin:6px 0 3px;}
-  .label-block input, .label-block textarea{width:100%;}
-  .nutri-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-  .previewCard{background:#fff;border:1.5px dashed rgba(24,34,51,.14);border-radius:16px;padding:14px;margin-top:14px;}
-  .previewCard h4{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray);font-weight:800;}
-  .ing-statement{font-size:12.5px;line-height:1.6;}
-  .contains-line{font-size:12px;font-weight:700;margin-top:8px;}
-  .nfp{border:2px solid var(--navy);border-radius:8px;margin-top:12px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;}
-  .nfp-title{background:var(--navy);color:#fff;font-weight:900;font-size:13px;padding:6px 10px;}
-  .nfp-row{display:flex;justify-content:space-between;padding:5px 10px;font-size:12px;border-top:1px solid #ddd;}
-  .nfp-row b{font-weight:800;}
-  .disclaimer{font-size:10.5px;color:var(--gray);margin-top:8px;line-height:1.5;font-style:italic;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--gray-bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:18px;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+    overflow-x:hidden;
+  }
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+    touch-action:manipulation;
+  }
+  input{ font-family:inherit; }
+
+  /* ===== Header ===== */
+  #app{ display:flex; flex-direction:column; min-height:100vh; }
+  header{
+    background:linear-gradient(135deg,var(--green-dark),var(--green));
+    padding:18px 20px 14px;
+    display:flex; flex-direction:column; gap:10px;
+    border-bottom:4px solid var(--orange);
+    position:sticky; top:0; z-index:20;
+  }
+  .header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand .logo-dot{
+    width:38px;height:38px;border-radius:50%;
+    background:var(--orange);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800; font-size:20px; color:#fff;
+    flex:none;
+  }
+  .brand h1{ font-size:22px; margin:0; line-height:1.1; letter-spacing:.3px; }
+  .brand .sub{ font-size:13px; color:#d8f0e0; opacity:.9; }
+  #clock{ text-align:right; font-size:14px; color:#d8f0e0; line-height:1.3;}
+  #clock .time{ font-size:22px; font-weight:700; color:#fff; }
+  .header-btns{ display:flex; gap:10px; }
+  .icon-btn{
+    background:rgba(255,255,255,.12);
+    color:#fff;
+    border-radius:12px;
+    padding:10px 14px;
+    font-size:15px;
+    font-weight:600;
+    display:flex; align-items:center; gap:6px;
+  }
+  .icon-btn:active{ background:rgba(255,255,255,.28); }
+  #syncStatus{
+    font-size:12px; padding:4px 10px; border-radius:20px; font-weight:700;
+    background:rgba(0,0,0,.25); display:inline-flex; align-items:center; gap:6px;
+  }
+  #syncStatus .dot{ width:8px; height:8px; border-radius:50%; background:var(--text-dim); }
+  #syncStatus.live .dot{ background:#4ade80; }
+  #syncStatus.offline .dot{ background:var(--red); }
+  #syncStatus.syncing .dot{ background:var(--yellow); }
+
+  /* ===== Nav Tabs ===== */
+  nav#tabs{
+    display:flex;
+    background:var(--panel);
+    border-bottom:1px solid var(--border);
+    position:sticky; top:0; z-index:19;
+    overflow-x:auto;
+  }
+  nav#tabs button{
+    flex:1;
+    min-width:120px;
+    background:transparent;
+    color:var(--text-dim);
+    padding:16px 8px;
+    font-size:15px;
+    font-weight:700;
+    border-bottom:4px solid transparent;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  nav#tabs button .count{
+    background:var(--panel2);
+    color:var(--text);
+    border-radius:20px;
+    padding:2px 10px;
+    font-size:13px;
+    min-width:24px;
+  }
+  nav#tabs button.active{
+    color:#fff;
+    border-bottom-color:var(--orange);
+    background:var(--panel2);
+  }
+  nav#tabs button.active .count{ background:var(--orange); color:#fff; }
+
+  /* ===== Main ===== */
+  main{ flex:1; padding:16px; padding-bottom:60px; }
+  .view{ display:none; }
+  .view.active{ display:block; }
+
+  .view-title{ font-size:20px; font-weight:800; margin:4px 2px 14px; display:flex; align-items:center; justify-content:space-between;}
+  .view-title .hint{ font-size:13px; color:var(--text-dim); font-weight:500; }
+
+  /* Station grid */
+  #stationGrid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:14px;
+  }
+  @media (min-width:700px){ #stationGrid{ grid-template-columns:repeat(3,1fr); } }
+  .station-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-height:150px;
+    position:relative;
+    overflow:hidden;
+  }
+  .station-card:active{ background:var(--panel2); }
+  .station-card .st-num{
+    font-size:14px; font-weight:800; color:var(--orange); letter-spacing:.5px;
+  }
+  .station-card .st-crew{ font-size:14px; color:var(--text-dim); }
+  .station-card .st-meals{ font-size:13px; color:var(--text-dim); margin-top:auto; }
+  .station-card .st-badges{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .badge{
+    font-size:11px; font-weight:800; padding:3px 8px; border-radius:20px;
+    text-transform:uppercase; letter-spacing:.4px;
+  }
+  .badge.notstarted{ background:#333844; color:#c7ccd6; }
+  .badge.inprogress{ background:#2f4f8f; color:#bcd4ff; }
+  .badge.packaging{ background:#7a5a12; color:#ffdf8a; }
+  .badge.finished{ background:#1c5c33; color:#9ff0bd; }
+
+  /* Meal list (inside station detail or packaging/finished views) */
+  .meal-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-left:6px solid var(--text-dim);
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:12px;
+  }
+  .meal-card.stage-not_started{ border-left-color:#5b6270; }
+  .meal-card.stage-in_progress{ border-left-color:var(--blue); }
+  .meal-card.stage-packaging{ border-left-color:var(--yellow); }
+  .meal-card.stage-finished{ border-left-color:#2ecc71; }
+
+  .meal-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .meal-name{ font-size:17px; font-weight:800; line-height:1.25; }
+  .meal-meta{ font-size:12.5px; color:var(--text-dim); margin-top:3px; }
+  .meal-stage-label{ font-size:12px; font-weight:800; text-transform:uppercase; padding:4px 9px; border-radius:20px; white-space:nowrap; }
+  .stage-not_started .meal-stage-label{ background:#333844; color:#c7ccd6; }
+  .stage-in_progress .meal-stage-label{ background:#2f4f8f; color:#bcd4ff; }
+  .stage-packaging .meal-stage-label{ background:#7a5a12; color:#ffdf8a; }
+  .stage-finished .meal-stage-label{ background:#1c5c33; color:#9ff0bd; }
+
+  .meal-actions{ display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; align-items:center; }
+  .btn{
+    padding:14px 20px;
+    border-radius:12px;
+    font-weight:800;
+    font-size:16px;
+    min-height:52px;
+    flex:1;
+    text-align:center;
+  }
+  .btn.primary{ background:var(--orange); color:#fff; }
+  .btn.primary:active{ background:var(--orange-dark); }
+  .btn.blue{ background:var(--blue); color:#fff; }
+  .btn.blue:active{ background:#1a4a80; }
+  .btn.green{ background:var(--green); color:#fff; }
+  .btn.green:active{ background:var(--green-dark); }
+  .btn.ghost{
+    background:transparent; color:var(--text-dim); border:1px solid var(--border);
+    flex:none; min-height:44px; padding:10px 16px; font-size:14px; font-weight:700;
+  }
+  .btn.ghost:active{ background:var(--panel2); }
+  .btn:disabled{ opacity:.4; }
+
+  .stamp-row{
+    display:flex; align-items:center; gap:8px; margin-top:8px;
+  }
+  .stamp-row .stamp-text{ font-size:13px; color:var(--text-dim); }
+  .clear-x{
+    background:var(--panel2); color:var(--text-dim);
+    border:1px solid var(--border); border-radius:50%;
+    width:30px; height:30px; font-size:15px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .clear-x:active{ background:var(--red); color:#fff; border-color:var(--red); }
+  .edit-pencil{
+    background:transparent; color:var(--text-dim); border:none;
+    font-size:14px; font-weight:700; padding:4px 6px; text-decoration:underline;
+  }
+
+  .units-row{ display:flex; gap:10px; align-items:center; }
+  .units-row input[type=number]{
+    flex:1; min-width:0; font-size:22px; font-weight:800; text-align:center;
+    padding:12px; border-radius:12px; border:2px solid var(--border);
+    background:var(--panel2); color:var(--text);
+  }
+  .units-row input[type=number]:focus{ outline:2px solid var(--orange); }
+
+  .empty-state{
+    text-align:center; color:var(--text-dim); padding:50px 20px; font-size:15px;
+  }
+  .empty-state .big{ font-size:40px; display:block; margin-bottom:10px; }
+
+  /* Modal */
+  .modal{
+    position:fixed; inset:0; background:rgba(0,0,0,.6);
+    display:flex; align-items:flex-end; justify-content:center;
+    z-index:50;
+  }
+  .modal.hidden{ display:none; }
+  .modal-sheet{
+    background:var(--panel); width:100%; max-width:720px;
+    border-radius:20px 20px 0 0; padding:20px; max-height:88vh; overflow-y:auto;
+    border-top:4px solid var(--orange);
+  }
+  .modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .modal-head h2{ margin:0; font-size:20px; }
+  .close-x{ background:var(--panel2); color:var(--text); border-radius:50%; width:40px; height:40px; font-size:20px; }
+
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:13px; font-weight:700; color:var(--text-dim); margin-bottom:6px; }
+  .field input[type=text], .field textarea{
+    width:100%; padding:12px; border-radius:10px; border:1px solid var(--border);
+    background:var(--panel2); color:var(--text); font-size:15px;
+  }
+  .field textarea{ min-height:90px; font-family:monospace; font-size:12px; }
+  .field .help{ font-size:12px; color:var(--text-dim); margin-top:4px; }
+
+  .settings-section{ border-top:1px solid var(--border); padding-top:14px; margin-top:14px; }
+  .settings-section h3{ font-size:14px; text-transform:uppercase; letter-spacing:.5px; color:var(--orange); margin:0 0 10px; }
+
+  table.inv-table{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.inv-table th, table.inv-table td{ padding:8px 6px; border-bottom:1px solid var(--border); text-align:left; }
+  table.inv-table th{ color:var(--text-dim); font-weight:700; position:sticky; top:0; background:var(--panel); }
+
+  .summary-bar{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px;
+  }
+  .summary-tile{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:12px; text-align:center; }
+  .summary-tile .num{ font-size:24px; font-weight:800; }
+  .summary-tile .lbl{ font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-top:2px;}
+  .summary-tile.st-inprogress .num{ color:#7fb0ff; }
+  .summary-tile.st-packaging .num{ color:var(--yellow); }
+  .summary-tile.st-finished .num{ color:#5ee38a; }
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:#000; color:#fff; padding:12px 20px; border-radius:30px;
+    font-size:14px; font-weight:700; z-index:100; opacity:0; transition:opacity .25s;
+    pointer-events:none; max-width:90%; text-align:center;
+  }
+  .toast.show{ opacity:1; }
 </style>
 </head>
 <body>
-<header>
-  <div class="brandrow">
-    <div>
-      <div class="brandname"><span class="hummus">Hummus</span><span class="fit"> FIT</span></div>
-      <div class="subtitle">Yield Platform</div>
-    </div>
-    <div class="headerRight">
-      <div class="autosave-pill"><span class="autosave-dot" id="autosaveDot"></span><span id="autosaveText">Autosave on</span></div>
-      <button class="btn btn-secondary" style="padding:8px 14px;font-size:12px;" onclick="openAddMeal()">＋ Meal</button>
-    </div>
-  </div>
-  <div class="tabs">
-    <div class="tab active" id="tab-meals" onclick="switchTab('meals')">Meals & Logging</div>
-    <div class="tab" id="tab-calc" onclick="switchTab('calc')">Calculator</div>
-  </div>
-</header>
+<div id="app">
 
-<main>
-  <div id="view-meals">
-    <div class="headline">Log It Once.<br>Trust It Forever.</div>
-    <div id="mealList"></div>
-  </div>
-
-  <div id="view-calc" style="display:none;">
-    <div class="headline">The Calculator.</div>
-    <div class="calc-card">
-      <div class="section-label">Meal</div>
-      <select id="calcMeal" style="width:100%;" onchange="renderCalc()"></select>
-
-      <div class="section-label">What do you want to know?</div>
-      <div class="row2">
-        <button class="btn btn-secondary btn-full" id="modeForMeals" onclick="setCalcMode('forMeals')">I need N meals</button>
-        <button class="btn btn-secondary btn-full" id="modeFromRaw" onclick="setCalcMode('fromRaw')">I have X raw</button>
+  <header>
+    <div class="header-row">
+      <div class="brand">
+        <div class="logo-dot">H</div>
+        <div>
+          <h1>Hummus Fit Production Hub</h1>
+          <div class="sub">Live floor tracking &middot; read-only from Sheets, no write-back</div>
+        </div>
       </div>
-
-      <div id="calcInputs" style="margin-top:14px;"></div>
-      <button class="btn btn-orange btn-full" style="margin-top:14px;" onclick="runCalc()">Calculate</button>
-      <div id="calcResult"></div>
+      <div id="clock">
+        <div class="time" id="clockTime">--:--</div>
+        <div id="clockDate">--</div>
+      </div>
     </div>
+    <div class="header-row">
+      <div id="syncStatus" class="offline"><span class="dot"></span><span id="syncStatusText">Not synced</span></div>
+      <div class="header-btns">
+        <button class="icon-btn" id="btnSync">&#8635; Sync Now</button>
+        <button class="icon-btn" id="btnSettings">&#9881; Settings</button>
+      </div>
+    </div>
+  </header>
+
+  <nav id="tabs">
+    <button data-view="stations" class="active">Stations<span class="count" id="cntStations">0</span></button>
+    <button data-view="packaging">Next Up — Packaging<span class="count" id="cntPackaging">0</span></button>
+    <button data-view="finished">Finished<span class="count" id="cntFinished">0</span></button>
+    <button data-view="inventory">Inventory Ref</button>
+  </nav>
+
+  <main>
+    <!-- STATIONS VIEW -->
+    <section class="view active" id="view-stations">
+      <div class="summary-bar">
+        <div class="summary-tile"><div class="num" id="sumNotStarted">0</div><div class="lbl">Not Started</div></div>
+        <div class="summary-tile st-inprogress"><div class="num" id="sumInProgress">0</div><div class="lbl">In Progress</div></div>
+        <div class="summary-tile st-packaging"><div class="num" id="sumPackaging">0</div><div class="lbl">Packaging</div></div>
+        <div class="summary-tile st-finished"><div class="num" id="sumFinished">0</div><div class="lbl">Finished</div></div>
+      </div>
+      <div class="view-title">Stations <span class="hint">Tap a station to open its meals</span></div>
+      <div id="stationGrid"></div>
+    </section>
+
+    <!-- PACKAGING VIEW -->
+    <section class="view" id="view-packaging">
+      <div class="view-title">Next Up — Packaging <span class="hint">Enter units to mark finished</span></div>
+      <div id="packagingList"></div>
+    </section>
+
+    <!-- FINISHED VIEW -->
+    <section class="view" id="view-finished">
+      <div class="view-title">Finished Today <span class="hint" id="finishedTotalUnits"></span></div>
+      <div id="finishedList"></div>
+    </section>
+
+    <!-- INVENTORY REFERENCE VIEW -->
+    <section class="view" id="view-inventory">
+      <div class="view-title">Inventory Sheet Reference <span class="hint">Read-only pull — for reference only</span></div>
+      <div id="inventoryTableWrap" class="empty-state">
+        <span class="big">📋</span>
+        No inventory data pulled yet. Tap "Sync Now" or check Settings.
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Station detail modal -->
+<div class="modal hidden" id="stationModal">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h2 id="stationModalTitle">Station</h2>
+      <button class="close-x" data-close="stationModal">&times;</button>
+    </div>
+    <div id="stationModalBody"></div>
   </div>
-</main>
+</div>
 
-<div class="toast" id="toast"></div>
+<!-- Settings modal -->
+<div class="modal hidden" id="settingsModal">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h2>Settings</h2>
+      <button class="close-x" data-close="settingsModal">&times;</button>
+    </div>
 
-<div class="modal-bg" id="addMealModal">
-  <div class="modal">
-    <div style="display:flex;justify-content:space-between;"><h3>Add a Meal</h3><button class="xbtn" onclick="closeModal('addMealModal')">✕</button></div>
-    <div class="section-label">Meal Name</div>
-    <input id="newMealName" style="width:100%;" placeholder="e.g. Basmati Rice / Ground Beef Bowl">
-    <div class="section-label">Components (one per line)</div>
-    <textarea id="newMealComponents" rows="4" style="width:100%;" placeholder="Basmati Rice&#10;Ground Beef&#10;Pickles&#10;Onion"></textarea>
-    <div class="row2" style="margin-top:14px;">
-      <button class="btn btn-secondary btn-full" onclick="closeModal('addMealModal')">Cancel</button>
-      <button class="btn btn-primary btn-full" onclick="addMeal()">Add</button>
+    <div class="settings-section" style="border-top:none; margin-top:0;">
+      <h3>Station Assignments Sheet</h3>
+      <div class="field">
+        <label>Google Sheet ID</label>
+        <input type="text" id="cfgStationSheetId">
+      </div>
+      <div class="field">
+        <label>Today's Tab (gid)</label>
+        <input type="text" id="cfgStationGid">
+        <div class="help">Open today's dated tab in the Station Assignments sheet, copy the number after <code>gid=</code> in the URL, and paste it here. This changes every day a new tab is added.</div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Inventory Sheet</h3>
+      <div class="field">
+        <label>Google Sheet ID</label>
+        <input type="text" id="cfgInventorySheetId">
+      </div>
+      <div class="field">
+        <label>Today's Tab (gid)</label>
+        <input type="text" id="cfgInventoryGid">
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <button class="btn primary" id="btnApplySettings" style="width:100%;">Save &amp; Sync Now</button>
+      <div class="help" style="margin-top:8px;">
+        Both sheets must be shared as <b>"Anyone with the link — Viewer"</b> for this screen to read them.
+        Nothing this screen does ever writes back to either sheet.
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Manual Paste Fallback</h3>
+      <div class="help" style="margin-bottom:8px;">If live pulling fails (sharing settings, network, etc.), paste CSV exported from the sheet here instead.</div>
+      <div class="field">
+        <label>Station Assignments CSV</label>
+        <textarea id="cfgStationCsvPaste" placeholder="Paste CSV here"></textarea>
+      </div>
+      <div class="field">
+        <label>Inventory CSV</label>
+        <textarea id="cfgInventoryCsvPaste" placeholder="Paste CSV here"></textarea>
+      </div>
+      <button class="btn ghost" id="btnUseManualCsv">Use Pasted CSV Instead</button>
+    </div>
+
+    <div class="settings-section">
+      <h3>Danger Zone</h3>
+      <button class="btn ghost" id="btnResetShift" style="color:var(--red); border-color:var(--red);">Reset All Progress (start new shift)</button>
     </div>
   </div>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
-let meals = [];
-let openCards = new Set();
-let labelCache = {}; // mealId -> label/nutrition response
-let calcMode = "forMeals";
-const AUTOSAVE_MS = 30000;
+(function(){
+  "use strict";
 
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
-function haptic(p){ if(navigator.vibrate){ try{navigator.vibrate(p||10);}catch(e){} } }
-function switchTab(name){
-  document.getElementById('tab-meals').classList.toggle('active', name==='meals');
-  document.getElementById('tab-calc').classList.toggle('active', name==='calc');
-  document.getElementById('view-meals').style.display = name==='meals' ? '' : 'none';
-  document.getElementById('view-calc').style.display = name==='calc' ? '' : 'none';
-  if(name==='calc') populateCalcMeals();
-}
-
-async function loadMeals(){
-  const res = await fetch('/api/meals');
-  meals = await res.json();
-  renderMeals();
-  openCards.forEach(id => fetchLabel(id));
-}
-
-function initials(name){ return name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join(''); }
-function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function fmt(n, d){ if(n==null || isNaN(n)) return '—'; return Number(n).toFixed(d==null?1:d); }
-
-function renderMeals(){
-  const wrap = document.getElementById('mealList');
-  if(!meals.length){ wrap.innerHTML = '<div class="empty">No meals yet. Tap “＋ Meal” to add your first pilot meal.</div>'; return; }
-  wrap.innerHTML = meals.map(m => `
-    <div class="meal-card">
-      <div class="meal-head" onclick="toggleCard(${m.id})">
-        <div style="display:flex;align-items:center;gap:12px;min-width:0;">
-          <div class="meal-avatar">${initials(m.name)}</div>
-          <div class="meal-title"><div class="name">${esc(m.name)}</div><div class="meta">${m.components.length} components</div></div>
-        </div>
-        <span style="color:#8a93a3;">${openCards.has(m.id)?'▲':'▼'}</span>
-      </div>
-      ${openCards.has(m.id) ? renderMealBody(m) : ''}
-    </div>
-  `).join('');
-}
-
-function renderMealBody(m){
-  return `<div class="meal-body">
-    ${m.components.map(c => renderComponent(c)).join('')}
-    <div id="labelPreview-${m.id}">${renderLabelPreview(m.id)}</div>
-  </div>`;
-}
-
-function renderComponent(c){
-  const d = c.draft || {};
-  const draftFlag = (d.raw_weight_g||d.cooked_weight_g||d.crew_a_g||d.crew_b_g) ? `<span class="draftTag">draft restored</span>` : '';
-  return `
-      <div class="comp">
-        <div class="comp-head">
-          <span>${esc(c.name)} ${draftFlag}</span>
-          <span>
-            ${c.avg_cook_yield_pct!=null ? `<span class="yieldTag">${fmt(c.avg_cook_yield_pct)}% yield</span>` : ''}
-            ${c.crew_gap_pct!=null ? `<span class="gapTag">${fmt(c.crew_gap_pct)}% crew gap</span>` : ''}
-          </span>
-        </div>
-        <div class="comp-stat">Target portion: ${c.target_portion_g ? c.target_portion_g+'g' : 'not locked'}</div>
-
-        <div class="inline-form">
-          <input type="number" placeholder="Raw g" id="raw-${c.id}" value="${d.raw_weight_g ?? ''}" oninput="markDirty(${c.id})">
-          <input type="number" placeholder="Cooked g" id="cooked-${c.id}" value="${d.cooked_weight_g ?? ''}" oninput="markDirty(${c.id})">
-          <button class="miniBtn" onclick="logCook(${c.id})">Log Cook</button>
-        </div>
-        <div class="inline-form">
-          <input type="number" placeholder="Crew A g" id="ca-${c.id}" value="${d.crew_a_g ?? ''}" oninput="markDirty(${c.id})">
-          <input type="number" placeholder="Crew B g" id="cb-${c.id}" value="${d.crew_b_g ?? ''}" oninput="markDirty(${c.id})">
-          <button class="miniBtn orange" onclick="logPortion(${c.id})">Log Portion</button>
-        </div>
-        <div class="inline-form" style="grid-template-columns:1fr auto;">
-          <input type="number" placeholder="Lock target portion (g)" id="target-${c.id}" value="${c.target_portion_g||''}">
-          <button class="miniBtn" onclick="lockTarget(${c.id})">Lock</button>
-        </div>
-
-        <button class="toggle-link" onclick="toggleLabelBlock(${c.id})">⚙︎ Ingredient & nutrition data for this component</button>
-        <div class="label-block" id="labelBlock-${c.id}">
-          <div class="lbl">Common/usual name (for label, if different)</div>
-          <input type="text" id="commonName-${c.id}" value="${esc(c.common_name||'')}" placeholder="${esc(c.name)}">
-          <div class="lbl">Sub-ingredients (compound ingredient — comma separated, descending by weight)</div>
-          <textarea id="subIng-${c.id}" rows="2" placeholder="e.g. Cucumbers, Vinegar, Salt, Calcium Chloride">${esc(c.sub_ingredients||'')}</textarea>
-          <div class="lbl">Allergens (comma separated)</div>
-          <input type="text" id="allergens-${c.id}" value="${esc(c.allergens||'')}" placeholder="e.g. Milk, Soy">
-          <div class="lbl">Nutrition — per gram of this component's target portion weight</div>
-          <div class="nutri-grid">
-            <input type="number" step="0.01" id="cal-${c.id}" value="${c.calories_per_g ?? ''}" placeholder="Calories/g">
-            <input type="number" step="0.01" id="prot-${c.id}" value="${c.protein_g_per_g ?? ''}" placeholder="Protein g/g">
-            <input type="number" step="0.01" id="carb-${c.id}" value="${c.carbs_g_per_g ?? ''}" placeholder="Carbs g/g">
-            <input type="number" step="0.01" id="fat-${c.id}" value="${c.fat_g_per_g ?? ''}" placeholder="Fat g/g">
-            <input type="number" step="0.01" id="sod-${c.id}" value="${c.sodium_mg_per_g ?? ''}" placeholder="Sodium mg/g">
-          </div>
-          <button class="miniBtn" style="margin-top:8px;" onclick="saveLabelData(${c.id})">Save Ingredient/Nutrition Data</button>
-        </div>
-      </div>
-  `;
-}
-
-function renderLabelPreview(mealId){
-  const data = labelCache[mealId];
-  if(!data) return `<div class="previewCard"><h4>Label Preview</h4><div class="comp-stat">Loading…</div></div>`;
-  const n = data.nutrition;
-  return `
-    <div class="previewCard">
-      <h4>USDA-Style Label Preview</h4>
-      <div class="ing-statement"><b>Ingredients:</b> ${esc(data.ingredient_statement) || '—'}</div>
-      ${data.contains_statement ? `<div class="contains-line">${esc(data.contains_statement)}</div>` : ''}
-      ${data.ingredient_order_warning ? `<div class="warn">${esc(data.ingredient_order_warning)}</div>` : ''}
-
-      <div class="nfp">
-        <div class="nfp-title">Nutrition Facts (estimate)</div>
-        <div class="nfp-row"><span>Serving Size</span><b>${fmt(n.serving_weight_g,0)} g</b></div>
-        <div class="nfp-row"><span>Calories</span><b>${fmt(n.calories,0)}</b></div>
-        <div class="nfp-row"><span>Protein</span><b>${fmt(n.protein_g,1)} g</b></div>
-        <div class="nfp-row"><span>Total Carbohydrate</span><b>${fmt(n.carbs_g,1)} g</b></div>
-        <div class="nfp-row"><span>Total Fat</span><b>${fmt(n.fat_g,1)} g</b></div>
-        <div class="nfp-row"><span>Sodium</span><b>${fmt(n.sodium_mg,0)} mg</b></div>
-      </div>
-      ${!n.is_estimate_complete ? '<div class="warn">One or more components is missing nutrition-per-gram data — this total is partial.</div>' : ''}
-      <div class="disclaimer">Planning estimate only, calculated from the per-gram values entered above. Not a certified Nutrition Facts panel — run the final formulation through a verified lab analysis or nutrition software before it goes on a retail label, and confirm FDA vs. USDA-FSIS format requirements.</div>
-    </div>
-  `;
-}
-
-async function fetchLabel(mealId){
-  try{
-    const res = await fetch(`/api/meals/${mealId}/label`);
-    labelCache[mealId] = await res.json();
-  }catch(e){}
-  const el = document.getElementById('labelPreview-'+mealId);
-  if(el) el.innerHTML = renderLabelPreview(mealId);
-}
-
-function toggleCard(id){
-  if(openCards.has(id)){ openCards.delete(id); } else { openCards.add(id); fetchLabel(id); }
-  haptic(10); renderMeals();
-}
-
-function toggleLabelBlock(componentId){
-  const el = document.getElementById('labelBlock-'+componentId);
-  el.classList.toggle('open');
-  haptic(8);
-}
-
-async function saveLabelData(componentId){
-  const body = {
-    common_name: document.getElementById('commonName-'+componentId).value.trim() || null,
-    sub_ingredients: document.getElementById('subIng-'+componentId).value.trim() || null,
-    allergens: document.getElementById('allergens-'+componentId).value.trim() || null,
-    calories_per_g: parseFloat(document.getElementById('cal-'+componentId).value) || null,
-    protein_g_per_g: parseFloat(document.getElementById('prot-'+componentId).value) || null,
-    carbs_g_per_g: parseFloat(document.getElementById('carb-'+componentId).value) || null,
-    fat_g_per_g: parseFloat(document.getElementById('fat-'+componentId).value) || null,
-    sodium_mg_per_g: parseFloat(document.getElementById('sod-'+componentId).value) || null,
+  /* ============================================================
+     CONFIG — defaults pulled from the sheet URLs you shared.
+     The GID (tab id) for both sheets changes whenever a new
+     dated tab is added — update it in Settings each shift.
+  ============================================================ */
+  var config = {
+    stationSheetId: "1RPMZIlTlZtSXQYDb-cjGUbSeeamiHcYNCaV6DglGiJM",
+    stationGid: "555392155",
+    inventorySheetId: "1VSNtHtIN87bMrQlfFUPvaSQqGQWE9g6hAu0EgXAGVsU",
+    inventoryGid: "1563059118"
   };
-  await fetch(`/api/components/${componentId}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-  haptic(15); toast('Ingredient & nutrition data saved');
-  await loadMeals();
-}
 
-async function logCook(componentId){
-  const raw = parseFloat(document.getElementById('raw-'+componentId).value);
-  const cooked = parseFloat(document.getElementById('cooked-'+componentId).value);
-  if(!raw || !cooked){ toast('Enter both raw and cooked weight'); return; }
-  await fetch(`/api/components/${componentId}/cook-log`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({raw_weight_g:raw, cooked_weight_g:cooked})});
-  haptic([10,20,10]); toast('Cook yield logged');
-  await loadMeals();
-}
+  // In-memory only — per project constraints this dashboard does not
+  // use localStorage/sessionStorage. Progress lives for the session;
+  // leave this tab open for the whole shift. Re-sync merges new sheet
+  // rows without touching meals already being tracked.
+  var state = {
+    meals: [],           // [{id, mealName, batchNum, station, employees, eligibleStations, stage, startTime, endTime, packagingUnits, finishedTime}]
+    stations: {},         // stationNum -> {employee1, employee2, mealCount, notes}
+    inventoryRows: [],    // raw rows from inventory sheet for reference view
+    lastSyncTime: null,
+    syncOk: false
+  };
 
-async function logPortion(componentId){
-  const a = parseFloat(document.getElementById('ca-'+componentId).value);
-  const b = parseFloat(document.getElementById('cb-'+componentId).value);
-  if(a) await fetch(`/api/components/${componentId}/portion-log`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({crew:'Crew A', weight_g:a})});
-  if(b) await fetch(`/api/components/${componentId}/portion-log`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({crew:'Crew B', weight_g:b})});
-  if(!a && !b){ toast('Enter at least one crew weight'); return; }
-  haptic([10,20,10]); toast('Portion weights logged');
-  await loadMeals();
-}
+  var STAGES = ["not_started","in_progress","packaging","finished"];
+  var STAGE_LABEL = {
+    not_started: "Not Started",
+    in_progress: "In Progress",
+    packaging: "Next Up — Packaging",
+    finished: "Finished"
+  };
 
-async function lockTarget(componentId){
-  const val = parseFloat(document.getElementById('target-'+componentId).value);
-  if(!val){ toast('Enter a target weight first'); return; }
-  await fetch(`/api/components/${componentId}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_portion_g: val})});
-  haptic(15); toast('Target portion locked');
-  await loadMeals();
-}
-
-function openAddMeal(){ document.getElementById('addMealModal').classList.add('show'); }
-function closeModal(id){ document.getElementById(id).classList.remove('show'); }
-
-async function addMeal(){
-  const name = document.getElementById('newMealName').value.trim();
-  const compsRaw = document.getElementById('newMealComponents').value.trim();
-  if(!name){ toast('Name the meal first'); return; }
-  const components = compsRaw.split('\n').map(s=>s.trim()).filter(Boolean).map(n=>({name:n}));
-  await fetch('/api/meals', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, components})});
-  document.getElementById('newMealName').value=''; document.getElementById('newMealComponents').value='';
-  closeModal('addMealModal'); haptic(15); toast('Meal added');
-  await loadMeals();
-}
-
-// --- Autosave: every 30s, push whatever's currently typed (but not yet
-// submitted) for every open component so closing the tab can't lose it. ---
-let dirtyComponents = new Set();
-function markDirty(componentId){ dirtyComponents.add(componentId); }
-
-async function autosaveTick(){
-  if(!dirtyComponents.size){ return; }
-  const dot = document.getElementById('autosaveDot');
-  const text = document.getElementById('autosaveText');
-  dot.classList.add('pulse');
-  text.textContent = 'Saving…';
-  const ids = [...dirtyComponents];
-  dirtyComponents.clear();
-  await Promise.all(ids.map(id => {
-    const raw = document.getElementById('raw-'+id);
-    const cooked = document.getElementById('cooked-'+id);
-    const ca = document.getElementById('ca-'+id);
-    const cb = document.getElementById('cb-'+id);
-    if(!raw) return Promise.resolve();
-    const body = {
-      raw_weight_g: raw.value ? parseFloat(raw.value) : null,
-      cooked_weight_g: cooked.value ? parseFloat(cooked.value) : null,
-      crew_a_g: ca.value ? parseFloat(ca.value) : null,
-      crew_b_g: cb.value ? parseFloat(cb.value) : null,
-    };
-    return fetch(`/api/components/${id}/draft`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-  }));
-  setTimeout(()=>{ dot.classList.remove('pulse'); text.textContent = 'Autosave on'; }, 900);
-}
-setInterval(autosaveTick, AUTOSAVE_MS);
-window.addEventListener('beforeunload', autosaveTick);
-
-// --- Calculator ---
-function populateCalcMeals(){
-  const sel = document.getElementById('calcMeal');
-  sel.innerHTML = meals.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
-  renderCalc();
-}
-function setCalcMode(mode){
-  calcMode = mode;
-  document.getElementById('modeForMeals').className = 'btn btn-full ' + (mode==='forMeals'?'btn-primary':'btn-secondary');
-  document.getElementById('modeFromRaw').className = 'btn btn-full ' + (mode==='fromRaw'?'btn-primary':'btn-secondary');
-  renderCalc();
-}
-function renderCalc(){
-  setCalcModeButtons();
-  const mealId = document.getElementById('calcMeal').value;
-  const meal = meals.find(m => String(m.id)===String(mealId));
-  const box = document.getElementById('calcInputs');
-  document.getElementById('calcResult').innerHTML = '';
-  if(!meal){ box.innerHTML=''; return; }
-  if(calcMode==='forMeals'){
-    box.innerHTML = `<div class="section-label">How many finished meals?</div><input type="number" id="calcTargetMeals" style="width:100%;" placeholder="e.g. 500">`;
-  } else {
-    box.innerHTML = `<div class="section-label">Which component, and how much raw weight (g) do you have?</div>
-      <select id="calcComponent" style="width:100%;margin-bottom:8px;">${meal.components.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}</select>
-      <input type="number" id="calcRawAvailable" style="width:100%;" placeholder="e.g. 22500">`;
-  }
-}
-function setCalcModeButtons(){
-  document.getElementById('modeForMeals').className = 'btn btn-full ' + (calcMode==='forMeals'?'btn-primary':'btn-secondary');
-  document.getElementById('modeFromRaw').className = 'btn btn-full ' + (calcMode==='fromRaw'?'btn-primary':'btn-secondary');
-}
-
-async function runCalc(){
-  const mealId = document.getElementById('calcMeal').value;
-  if(!mealId){ toast('Add a meal first'); return; }
-  let body;
-  if(calcMode==='forMeals'){
-    const n = parseFloat(document.getElementById('calcTargetMeals').value);
-    if(!n){ toast('Enter a target meal count'); return; }
-    body = {mode:'forMeals', targetMeals:n};
-  } else {
-    const componentName = document.getElementById('calcComponent').value;
-    const raw = parseFloat(document.getElementById('calcRawAvailable').value);
-    if(!raw){ toast('Enter raw weight available'); return; }
-    body = {mode:'fromRaw', componentName, rawWeightAvailable:raw};
-  }
-  const res = await fetch(`/api/meals/${mealId}/calculate`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-  const data = await res.json();
-  const resultBox = document.getElementById('calcResult');
-  if(data.error){ resultBox.innerHTML = `<div class="warn">${esc(data.error)}</div>`; return; }
-
-  let headline = '';
-  if(data.mode==='forMeals'){
-    headline = `<div class="result-row"><span>Target</span><span class="val">${data.target_meals} meals</span></div>`;
-  } else {
-    headline = `<div class="result-row"><span>Max meals from ${esc(data.based_on_component)}</span><span class="val">${data.max_meals_possible} meals</span></div>`;
+  /* ============================================================
+     CSV PARSING (handles quoted fields, commas, newlines in quotes)
+  ============================================================ */
+  function parseCSV(text){
+    var rows = [];
+    var row = [];
+    var field = "";
+    var inQuotes = false;
+    for(var i=0;i<text.length;i++){
+      var c = text[i];
+      if(inQuotes){
+        if(c === '"'){
+          if(text[i+1] === '"'){ field += '"'; i++; }
+          else { inQuotes = false; }
+        } else { field += c; }
+      } else {
+        if(c === '"'){ inQuotes = true; }
+        else if(c === ','){ row.push(field); field=""; }
+        else if(c === '\r'){ /* skip */ }
+        else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=""; }
+        else { field += c; }
+      }
+    }
+    if(field.length || row.length){ row.push(field); rows.push(row); }
+    return rows;
   }
 
-  const rows = data.components.map(c => `
-    <div class="result-row">
-      <span>${esc(c.component)} — cook this much raw</span>
-      <span class="val">${c.raw_weight_to_cook_g!=null ? fmt(c.raw_weight_to_cook_g,0)+'g' : 'no yield data'}</span>
-    </div>
-  `).join('');
+  function norm(s){ return (s||"").toString().trim(); }
+  function lower(s){ return norm(s).toLowerCase(); }
 
-  resultBox.innerHTML = `<div class="result">${headline}${rows}</div>
-    ${data.warnings.length ? `<div class="warn">${data.warnings.map(esc).join('<br>')}</div>` : ''}`;
-  haptic([10,30,10]);
-}
+  function findHeaderIndex(rows, mustHaveCol){
+    for(var i=0;i<rows.length;i++){
+      for(var j=0;j<rows[i].length;j++){
+        if(lower(rows[i][j]) === mustHaveCol){ return i; }
+      }
+    }
+    return -1;
+  }
 
-loadMeals();
+  function buildColMap(headerRow){
+    var map = {};
+    headerRow.forEach(function(h,idx){
+      var key = lower(h).replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"");
+      if(key) map[key] = idx;
+    });
+    return map;
+  }
+  function col(row, map, key, fallbackIdx){
+    var idx = map[key];
+    if(idx === undefined) idx = fallbackIdx;
+    if(idx === undefined || idx < 0) return "";
+    return norm(row[idx]);
+  }
+
+  /* ============================================================
+     PARSE: Station Assignments tab
+  ============================================================ */
+  function parseStationSheet(csvText){
+    var rows = parseCSV(csvText);
+    var meals = [];
+    var stations = {};
+
+    // --- station summary block (top of sheet) ---
+    var sumHeaderIdx = findHeaderIndex(rows, "station");
+    if(sumHeaderIdx > -1){
+      var sMap = buildColMap(rows[sumHeaderIdx]);
+      for(var i=sumHeaderIdx+1;i<rows.length;i++){
+        var r = rows[i];
+        var stCell = col(r, sMap, "station", 0);
+        var m = stCell.match(/station\s*(\d+)/i);
+        if(!m) { if(!stCell) continue; else break; }
+        var num = m[1];
+        stations[num] = {
+          employee1: col(r, sMap, "employee_1", 1),
+          employee2: col(r, sMap, "employee_2", 2),
+          notes: col(r, sMap, "notes", 4)
+        };
+      }
+    }
+
+    // --- meal list block ---
+    var headerIdx = findHeaderIndex(rows, "meal name");
+    if(headerIdx === -1) return { meals: meals, stations: stations };
+    var map = buildColMap(rows[headerIdx]);
+    var currentStationFromSeparator = "";
+
+    for(var i2=headerIdx+1;i2<rows.length;i2++){
+      var row = rows[i2];
+      var first = norm(row[0]);
+      if(!first) continue; // blank spacer row, keep scanning (there may be a "MEALS PACKAGED ON..." section later)
+      if(/^summary/i.test(first)) break; // reached totals block, stop
+      if(/^station\s*\d+/i.test(first) || /^meals packaged/i.test(first)){
+        var sm = first.match(/station\s*(\d+)/i);
+        currentStationFromSeparator = sm ? sm[1] : currentStationFromSeparator;
+        continue; // separator/label row, not a meal
+      }
+      if(/^\(.*\)$/.test(first)) continue; // placeholder "(next day slot N — type meal name here)"
+
+      var mealName = first;
+      var stationAssigned = col(row, map, "station_assigned", 2) || currentStationFromSeparator;
+      var batchNum = col(row, map, "batch", 1);
+      var emp1 = col(row, map, "employee_1", 3);
+      var emp2 = col(row, map, "employee_2", 4);
+      var eligible = col(row, map, "eligible_stations", row.length-1);
+      var notes = col(row, map, "notes", 10);
+
+      meals.push({
+        mealName: mealName,
+        batchNum: batchNum,
+        station: stationAssigned || "unassigned",
+        employees: [emp1, emp2].filter(Boolean),
+        eligibleStations: eligible,
+        sourceNotes: notes
+      });
+    }
+
+    return { meals: meals, stations: stations };
+  }
+
+  /* ============================================================
+     PARSE: Inventory tab (reference only, not used for stage logic)
+  ============================================================ */
+  function parseInventorySheet(csvText){
+    var rows = parseCSV(csvText);
+    var headerIdx = findHeaderIndex(rows, "meal name");
+    if(headerIdx === -1) return [];
+    var map = buildColMap(rows[headerIdx]);
+    var out = [];
+    for(var i=headerIdx+1;i<rows.length;i++){
+      var row = rows[i];
+      var name = norm(row[0]);
+      if(!name) continue;
+      if(/^total meals packed/i.test(name)) break;
+      out.push({
+        mealName: name,
+        batchNum: col(row, map, "batch", 1),
+        packaging: col(row, map, "packaging", 2),
+        machineCrewUnits: col(row, map, "machine_crew_units", 4),
+        fridgeVerified: col(row, map, "fridge_verified", 5),
+        addedToShopify: col(row, map, "added_to_shopify", 6)
+      });
+    }
+    return out;
+  }
+
+  /* ============================================================
+     STAGE — always computed from the actual data on the meal,
+     never stored as an independent flag. Clearing a timestamp or
+     the unit count is the ONLY way to move a meal backward, and
+     it happens automatically — there is no separate "undo" state
+     that can drift out of sync with what's actually recorded.
+  ============================================================ */
+  function getStage(m){
+    if(m.packagingUnits != null && m.packagingUnits !== "") return "finished";
+    if(m.endTime) return "packaging";
+    if(m.startTime) return "in_progress";
+    return "not_started";
+  }
+  function recomputeStages(){
+    state.meals.forEach(function(m){ m.stage = getStage(m); });
+  }
+
+  /* ============================================================
+     MERGE — bring in freshly-pulled meals without resetting
+     progress already tracked on this screen.
+  ============================================================ */
+  function mealKey(m){
+    return [lower(m.mealName), norm(m.batchNum), norm(m.station)].join("::");
+  }
+
+  function mergeMeals(freshList){
+    var existingByKey = {};
+    state.meals.forEach(function(m){ existingByKey[mealKey(m)] = m; });
+    var merged = [];
+    var seen = {};
+    freshList.forEach(function(fm){
+      var key = mealKey(fm);
+      seen[key] = true;
+      if(existingByKey[key]){
+        var ex = existingByKey[key];
+        // keep tracked stage/timestamps, refresh reference fields only
+        ex.eligibleStations = fm.eligibleStations;
+        ex.sourceNotes = fm.sourceNotes;
+        ex.employees = fm.employees;
+        merged.push(ex);
+      } else {
+        merged.push({
+          id: key + "::" + Math.floor(Math.random()*1e9),
+          mealName: fm.mealName,
+          batchNum: fm.batchNum,
+          station: fm.station,
+          employees: fm.employees,
+          eligibleStations: fm.eligibleStations,
+          sourceNotes: fm.sourceNotes,
+          startTime: null,
+          endTime: null,
+          packagingUnits: null,
+          finishedTime: null
+        });
+      }
+    });
+    // keep any tracked meals that disappeared from the fresh pull (still in progress etc.)
+    // so nobody's active work vanishes just because a re-sync missed a row.
+    state.meals.forEach(function(m){
+      var key = mealKey(m);
+      if(!seen[key]) merged.push(m);
+    });
+    state.meals = merged;
+  }
+
+  /* ============================================================
+     FETCH
+  ============================================================ */
+  function csvUrl(sheetId, gid){
+    return "https://docs.google.com/spreadsheets/d/" + sheetId + "/gviz/tq?tqx=out:csv&gid=" + gid;
+  }
+
+  function setSyncStatus(mode, text){
+    var el = document.getElementById("syncStatus");
+    el.className = mode;
+    document.getElementById("syncStatusText").textContent = text;
+  }
+
+  function syncNow(){
+    setSyncStatus("syncing", "Syncing…");
+    var stationUrl = csvUrl(config.stationSheetId, config.stationGid);
+    var invUrl = csvUrl(config.inventorySheetId, config.inventoryGid);
+
+    Promise.all([
+      fetch(stationUrl).then(function(r){ if(!r.ok) throw new Error("station fetch failed"); return r.text(); }),
+      fetch(invUrl).then(function(r){ if(!r.ok) throw new Error("inventory fetch failed"); return r.text(); })
+    ]).then(function(results){
+      applyStationCsv(results[0]);
+      applyInventoryCsv(results[1]);
+      state.lastSyncTime = new Date();
+      state.syncOk = true;
+      setSyncStatus("live", "Live · synced " + formatTime(state.lastSyncTime));
+      renderAll();
+      showToast("Synced from Google Sheets");
+    }).catch(function(err){
+      state.syncOk = false;
+      setSyncStatus("offline", "Sync failed — check Settings / sharing");
+      showToast("Sync failed. Check sheet sharing settings or use manual paste in Settings.");
+      console.error(err);
+    });
+  }
+
+  function applyStationCsv(csvText){
+    var parsed = parseStationSheet(csvText);
+    mergeMeals(parsed.meals);
+    state.stations = parsed.stations;
+    recomputeStages();
+  }
+  function applyInventoryCsv(csvText){
+    state.inventoryRows = parseInventorySheet(csvText);
+  }
+
+  /* ============================================================
+     STAGE ACTIONS
+  ============================================================ */
+  function findMeal(id){ return state.meals.filter(function(m){ return m.id === id; })[0]; }
+
+  // Every action below only ever sets/clears the raw fields
+  // (startTime, endTime, packagingUnits). getStage() derives the
+  // visible stage from whatever those fields hold, so the stage
+  // label can never disagree with the timestamps/units shown.
+
+  function startMeal(id){
+    var m = findMeal(id); if(!m) return;
+    if(m.startTime) return; // already started — nothing to do
+    m.startTime = new Date();
+    recomputeStages();
+    renderAll();
+  }
+  function clearStart(id){
+    var m = findMeal(id); if(!m) return;
+    // clearing the start time necessarily invalidates everything
+    // downstream of it, so cascade the clear forward too.
+    m.startTime = null;
+    m.endTime = null;
+    m.packagingUnits = null;
+    m.finishedTime = null;
+    recomputeStages();
+    renderAll();
+  }
+  function endMeal(id){
+    var m = findMeal(id); if(!m) return;
+    if(!m.startTime){ showToast("Start prep before ending it"); return; }
+    if(m.endTime) return;
+    m.endTime = new Date();
+    recomputeStages();
+    renderAll();
+    switchView("packaging");
+  }
+  function clearEnd(id){
+    var m = findMeal(id); if(!m) return;
+    m.endTime = null;
+    m.packagingUnits = null;
+    m.finishedTime = null;
+    recomputeStages();
+    renderAll();
+  }
+  function confirmPackaging(id, units){
+    var m = findMeal(id); if(!m) return;
+    if(!m.endTime){ showToast("End prep before entering packaging units"); return; }
+    var n = parseInt(units, 10);
+    if(isNaN(n) || n < 0){ showToast("Enter a valid unit count first"); return; }
+    m.packagingUnits = n;
+    m.finishedTime = new Date();
+    recomputeStages();
+    renderAll();
+  }
+  function clearUnits(id){
+    var m = findMeal(id); if(!m) return;
+    m.packagingUnits = null;
+    m.finishedTime = null;
+    recomputeStages();
+    renderAll();
+  }
+  function editFinishedUnits(id){
+    var m = findMeal(id); if(!m) return;
+    var val = prompt("Update units packaged for \"" + m.mealName + "\":", m.packagingUnits != null ? m.packagingUnits : "");
+    if(val === null) return;
+    var n = parseInt(val, 10);
+    if(isNaN(n) || n < 0){ showToast("Enter a valid number"); return; }
+    m.packagingUnits = n; // stays finished — units were already set, this only corrects the number
+    recomputeStages();
+    renderAll();
+  }
+
+  /* ============================================================
+     RENDER
+  ============================================================ */
+  function formatTime(d){
+    if(!d) return "";
+    return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  }
+
+  function stationsSorted(){
+    return Object.keys(state.stations).concat(
+      state.meals.map(function(m){ return m.station; })
+    ).filter(function(v,i,a){ return v && a.indexOf(v)===i; })
+     .sort(function(a,b){
+       var na = parseInt(a,10), nb = parseInt(b,10);
+       if(!isNaN(na) && !isNaN(nb)) return na-nb;
+       return String(a).localeCompare(String(b));
+     });
+  }
+
+  function mealsForStation(stNum){
+    return state.meals.filter(function(m){ return String(m.station) === String(stNum); });
+  }
+
+  function renderSummary(){
+    recomputeStages();
+    var counts = {not_started:0, in_progress:0, packaging:0, finished:0};
+    state.meals.forEach(function(m){ counts[m.stage] = (counts[m.stage]||0)+1; });
+    document.getElementById("sumNotStarted").textContent = counts.not_started;
+    document.getElementById("sumInProgress").textContent = counts.in_progress;
+    document.getElementById("sumPackaging").textContent = counts.packaging;
+    document.getElementById("sumFinished").textContent = counts.finished;
+    document.getElementById("cntStations").textContent = stationsSorted().length;
+    document.getElementById("cntPackaging").textContent = counts.packaging;
+    document.getElementById("cntFinished").textContent = counts.finished;
+  }
+
+  function renderStationGrid(){
+    var grid = document.getElementById("stationGrid");
+    var stNums = stationsSorted();
+    if(!stNums.length){
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><span class="big">🔌</span>No station data yet. Tap "Sync Now" or check Settings.</div>';
+      return;
+    }
+    grid.innerHTML = stNums.map(function(st){
+      var info = state.stations[st] || {};
+      var meals = mealsForStation(st);
+      var counts = {not_started:0,in_progress:0,packaging:0,finished:0};
+      meals.forEach(function(m){ counts[m.stage]++; });
+      var crew = [info.employee1, info.employee2].filter(Boolean).join(" & ") || "Unassigned crew";
+      var badges = "";
+      if(counts.in_progress) badges += '<span class="badge inprogress">'+counts.in_progress+' In Prog</span>';
+      if(counts.packaging) badges += '<span class="badge packaging">'+counts.packaging+' Packaging</span>';
+      if(counts.finished) badges += '<span class="badge finished">'+counts.finished+' Finished</span>';
+      if(!badges) badges = '<span class="badge notstarted">'+meals.length+' Not Started</span>';
+      return '<button class="station-card" data-station="'+escapeAttr(st)+'">'
+        + '<div class="st-num">STATION '+escapeHtml(st)+'</div>'
+        + '<div class="st-crew">'+escapeHtml(crew)+'</div>'
+        + '<div class="st-badges">'+badges+'</div>'
+        + '<div class="st-meals">'+meals.length+' meal'+(meals.length===1?'':'s')+' assigned</div>'
+        + '</button>';
+    }).join("");
+  }
+
+  function mealCardHtml(m, context){
+    var stageClass = "stage-" + m.stage;
+    var meta = [];
+    if(m.batchNum) meta.push("Batch #"+m.batchNum);
+    if(context !== "station") meta.push("Station "+m.station);
+    if(m.employees && m.employees.length) meta.push(m.employees.join(" & "));
+    if(m.eligibleStations) meta.push("Eligible: "+m.eligibleStations);
+
+    var actions = "";
+    if(m.stage === "not_started"){
+      actions = '<div class="meal-actions">'
+        + '<button class="btn primary" data-action="start" data-id="'+m.id+'">▶ Start</button>'
+        + '</div>';
+    } else if(m.stage === "in_progress"){
+      actions = '<div class="meal-actions">'
+        + '<button class="btn blue" data-action="end" data-id="'+m.id+'">⏹ End Prep</button>'
+        + '</div>'
+        + '<div class="stamp-row">'
+        + '<span class="stamp-text">Started '+formatTime(m.startTime)+'</span>'
+        + '<button class="clear-x" data-action="clearStart" data-id="'+m.id+'" title="Clear start time — sends back to Not Started">✕</button>'
+        + '</div>';
+    } else if(m.stage === "packaging"){
+      actions = '<div class="units-row">'
+        + '<input type="number" min="0" inputmode="numeric" placeholder="Units" id="units-'+m.id+'">'
+        + '<button class="btn green" data-action="confirm" data-id="'+m.id+'">✓ Finish</button>'
+        + '</div>'
+        + '<div class="stamp-row">'
+        + '<span class="stamp-text">Ended '+formatTime(m.endTime)+'</span>'
+        + '<button class="clear-x" data-action="clearEnd" data-id="'+m.id+'" title="Clear end time — sends back to In Progress">✕</button>'
+        + '</div>';
+    } else if(m.stage === "finished"){
+      actions = '<div class="stamp-row">'
+        + '<span class="stamp-text">'+(m.packagingUnits!=null?m.packagingUnits+' units':'')+(m.finishedTime?' · Finished '+formatTime(m.finishedTime):'')+'</span>'
+        + '<button class="edit-pencil" data-action="edit" data-id="'+m.id+'">edit</button>'
+        + '<button class="clear-x" data-action="clearUnits" data-id="'+m.id+'" title="Clear units — sends back to Packaging">✕</button>'
+        + '</div>';
+    }
+
+    return '<div class="meal-card '+stageClass+'" data-mealid="'+m.id+'">'
+      + '<div class="meal-head">'
+      + '<div><div class="meal-name">'+escapeHtml(m.mealName)+'</div>'
+      + '<div class="meal-meta">'+escapeHtml(meta.join(" · "))+'</div></div>'
+      + '<div class="meal-stage-label">'+STAGE_LABEL[m.stage]+'</div>'
+      + '</div>'
+      + actions
+      + '</div>';
+  }
+
+  function renderStationModal(stNum){
+    var meals = mealsForStation(stNum);
+    var info = state.stations[stNum] || {};
+    document.getElementById("stationModalTitle").textContent = "Station " + stNum;
+    var crewLine = [info.employee1, info.employee2].filter(Boolean).join(" & ");
+    var body = "";
+    if(crewLine) body += '<div class="meal-meta" style="margin-bottom:10px;">Crew: '+escapeHtml(crewLine)+'</div>';
+    if(info.notes) body += '<div class="meal-meta" style="margin-bottom:10px;">Note: '+escapeHtml(info.notes)+'</div>';
+    if(!meals.length){
+      body += '<div class="empty-state"><span class="big">🍽️</span>No meals found for this station in the latest sync.</div>';
+    } else {
+      body += meals.map(function(m){ return mealCardHtml(m, "station"); }).join("");
+    }
+    document.getElementById("stationModalBody").innerHTML = body;
+    openModal("stationModal");
+  }
+
+  function renderPackagingView(){
+    var meals = state.meals.filter(function(m){ return m.stage === "packaging"; });
+    var wrap = document.getElementById("packagingList");
+    if(!meals.length){
+      wrap.innerHTML = '<div class="empty-state"><span class="big">📦</span>Nothing waiting on packaging right now.</div>';
+      return;
+    }
+    wrap.innerHTML = meals.map(function(m){ return mealCardHtml(m, "packaging"); }).join("");
+  }
+
+  function renderFinishedView(){
+    var meals = state.meals.filter(function(m){ return m.stage === "finished"; });
+    var wrap = document.getElementById("finishedList");
+    var totalUnits = meals.reduce(function(sum,m){ return sum + (m.packagingUnits||0); }, 0);
+    document.getElementById("finishedTotalUnits").textContent = meals.length ? (totalUnits + " units across " + meals.length + " meal(s)") : "";
+    if(!meals.length){
+      wrap.innerHTML = '<div class="empty-state"><span class="big">✅</span>No meals finished yet this shift.</div>';
+      return;
+    }
+    wrap.innerHTML = meals.map(function(m){ return mealCardHtml(m, "finished"); }).join("");
+  }
+
+  function renderInventoryView(){
+    var wrap = document.getElementById("inventoryTableWrap");
+    if(!state.inventoryRows.length){
+      wrap.innerHTML = '<div class="empty-state"><span class="big">📋</span>No inventory data pulled yet. Tap "Sync Now" or check Settings.</div>';
+      return;
+    }
+    var rowsHtml = state.inventoryRows.map(function(r){
+      return '<tr><td>'+escapeHtml(r.mealName)+'</td><td>'+escapeHtml(r.batchNum)+'</td>'
+        + '<td>'+escapeHtml(r.packaging)+'</td><td>'+escapeHtml(r.machineCrewUnits)+'</td>'
+        + '<td>'+escapeHtml(r.fridgeVerified)+'</td><td>'+escapeHtml(r.addedToShopify)+'</td></tr>';
+    }).join("");
+    wrap.innerHTML = '<div style="overflow-x:auto;"><table class="inv-table">'
+      + '<thead><tr><th>Meal</th><th>Batch</th><th>Packaging</th><th>Crew Units</th><th>Fridge ✓</th><th>Shopify</th></tr></thead>'
+      + '<tbody>'+rowsHtml+'</tbody></table></div>';
+  }
+
+  function renderAll(){
+    renderSummary();
+    renderStationGrid();
+    renderPackagingView();
+    renderFinishedView();
+    renderInventoryView();
+    // refresh open station modal if applicable
+    var openStation = document.getElementById("stationModal").getAttribute("data-open-station");
+    if(openStation) renderStationModal(openStation);
+  }
+
+  /* ============================================================
+     UTIL
+  ============================================================ */
+  function escapeHtml(s){
+    return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function escapeAttr(s){ return escapeHtml(s); }
+
+  var toastTimer;
+  function showToast(msg){
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 3200);
+  }
+
+  function openModal(id){ document.getElementById(id).classList.remove("hidden"); }
+  function closeModal(id){ document.getElementById(id).classList.add("hidden"); }
+
+  function switchView(name){
+    document.querySelectorAll(".view").forEach(function(v){ v.classList.remove("active"); });
+    document.getElementById("view-"+name).classList.add("active");
+    document.querySelectorAll("nav#tabs button").forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-view") === name);
+    });
+  }
+
+  /* ============================================================
+     EVENTS
+  ============================================================ */
+  document.getElementById("tabs").addEventListener("click", function(e){
+    var btn = e.target.closest("button[data-view]");
+    if(btn) switchView(btn.getAttribute("data-view"));
+  });
+
+  document.getElementById("stationGrid").addEventListener("click", function(e){
+    var card = e.target.closest(".station-card");
+    if(card){
+      var st = card.getAttribute("data-station");
+      document.getElementById("stationModal").setAttribute("data-open-station", st);
+      renderStationModal(st);
+    }
+  });
+
+  document.addEventListener("click", function(e){
+    var closeBtn = e.target.closest("[data-close]");
+    if(closeBtn){
+      var id = closeBtn.getAttribute("data-close");
+      if(id === "stationModal") document.getElementById("stationModal").removeAttribute("data-open-station");
+      closeModal(id);
+      return;
+    }
+    var actionBtn = e.target.closest("button[data-action]");
+    if(actionBtn){
+      var action = actionBtn.getAttribute("data-action");
+      var id = actionBtn.getAttribute("data-id");
+      if(action === "start") startMeal(id);
+      else if(action === "end") endMeal(id);
+      else if(action === "clearStart") clearStart(id);
+      else if(action === "clearEnd") clearEnd(id);
+      else if(action === "clearUnits") clearUnits(id);
+      else if(action === "edit") editFinishedUnits(id);
+      else if(action === "confirm"){
+        var input = document.getElementById("units-"+id);
+        confirmPackaging(id, input ? input.value : "");
+      }
+    }
+  });
+
+  document.getElementById("btnSync").addEventListener("click", syncNow);
+  document.getElementById("btnSettings").addEventListener("click", function(){
+    document.getElementById("cfgStationSheetId").value = config.stationSheetId;
+    document.getElementById("cfgStationGid").value = config.stationGid;
+    document.getElementById("cfgInventorySheetId").value = config.inventorySheetId;
+    document.getElementById("cfgInventoryGid").value = config.inventoryGid;
+    openModal("settingsModal");
+  });
+
+  document.getElementById("btnApplySettings").addEventListener("click", function(){
+    config.stationSheetId = norm(document.getElementById("cfgStationSheetId").value) || config.stationSheetId;
+    config.stationGid = norm(document.getElementById("cfgStationGid").value) || config.stationGid;
+    config.inventorySheetId = norm(document.getElementById("cfgInventorySheetId").value) || config.inventorySheetId;
+    config.inventoryGid = norm(document.getElementById("cfgInventoryGid").value) || config.inventoryGid;
+    closeModal("settingsModal");
+    syncNow();
+  });
+
+  document.getElementById("btnUseManualCsv").addEventListener("click", function(){
+    var sCsv = document.getElementById("cfgStationCsvPaste").value;
+    var iCsv = document.getElementById("cfgInventoryCsvPaste").value;
+    var did = false;
+    if(norm(sCsv)){ applyStationCsv(sCsv); did = true; }
+    if(norm(iCsv)){ applyInventoryCsv(iCsv); did = true; }
+    if(did){
+      state.lastSyncTime = new Date();
+      setSyncStatus("live", "Manual paste applied " + formatTime(state.lastSyncTime));
+      renderAll();
+      closeModal("settingsModal");
+      showToast("Applied pasted CSV data");
+    } else {
+      showToast("Paste at least one CSV before applying");
+    }
+  });
+
+  document.getElementById("btnResetShift").addEventListener("click", function(){
+    if(confirm("Reset all tracked progress for this shift? This cannot be undone.")){
+      state.meals = [];
+      renderAll();
+      closeModal("settingsModal");
+      showToast("Shift progress reset");
+    }
+  });
+
+  /* ============================================================
+     CLOCK + AUTO-SYNC
+  ============================================================ */
+  function tickClock(){
+    var now = new Date();
+    document.getElementById("clockTime").textContent = formatTime(now);
+    document.getElementById("clockDate").textContent = now.toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"});
+  }
+  tickClock();
+  setInterval(tickClock, 15000);
+
+  // initial sync + periodic re-sync (read-only pull, merges without resetting progress)
+  syncNow();
+  setInterval(syncNow, 5*60*1000);
+
+  renderAll();
+})();
 </script>
 </body>
 </html>
