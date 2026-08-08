@@ -1,250 +1,542 @@
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
-const db = require('./db');
-const { runSeed } = require('./seed');
-const shopify = require('./shopify');
-
-// Auto-seed on boot if the lanes table is empty (fresh volume / fresh
-// deploy). ALSO re-seed whenever lane_plan.json itself has changed since
-// the last boot — identified by a content hash stored in the meta table —
-// so a real re-slot of the room (new lane_plan.json pushed to prod) takes
-// effect automatically on the next deploy instead of silently staying on
-// the old layout because "the lanes table wasn't empty."
-const lanePlanHash = crypto
-  .createHash('sha1')
-  .update(fs.readFileSync(path.join(__dirname, 'lane_plan.json'), 'utf8'))
-  .digest('hex')
-  .slice(0, 12);
-
-const setPlanVersion = db.prepare(`
-  INSERT INTO meta (key, value) VALUES ('plan_version', ?)
-  ON CONFLICT(key) DO UPDATE SET value = excluded.value
-`);
-
-const laneCount = db.prepare('SELECT COUNT(*) AS n FROM lanes').get().n;
-const storedVersion = db.prepare(`SELECT value FROM meta WHERE key = 'plan_version'`).get();
-
-if (laneCount === 0) {
-  const result = runSeed(db);
-  setPlanVersion.run(lanePlanHash);
-  console.log('Auto-seeded empty database on boot:', result);
-} else if (!storedVersion || storedVersion.value !== lanePlanHash) {
-  const result = runSeed(db);
-  setPlanVersion.run(lanePlanHash);
-  console.log(`Lane plan changed (version ${lanePlanHash}) — re-seeded product placement:`, result);
-} else {
-  console.log(`DB already has ${laneCount} lanes on current plan version (${lanePlanHash}), skipping re-seed.`);
-}
+const express = require("express");
+const path = require("path");
+const fs = require("fs");
+const Database = require("better-sqlite3");
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
+app.use(express.static(path.join(__dirname, "public")));
 
-// Blueprint is now the primary landing page — the old Floor Plan/Restock
-// tile view (index.html) doesn't reflect the current category-zone layout
-// look and isn't linked anywhere anymore. Left on disk (still reachable
-// directly at /index.html) rather than deleted, in case the restock
-// tracking API underneath it is wanted again later.
-app.get('/', (req, res) => res.redirect('/blueprint.html'));
+// --- Google Sheets mirror ---------------------------------------------
+// Optional. If GOOGLE_SHEETS_WEBHOOK_URL is set (an Apps Script Web App,
+// see apps_script_code.gs), every cook-log and portion-log entry also gets
+// mirrored there as a live backup/report layer. The real database above is
+// still the source of truth -- this never blocks or fails a request if the
+// webhook is slow, unset, or down.
+const SHEETS_WEBHOOK = process.env.GOOGLE_SHEETS_WEBHOOK_URL || "";
+function syncToSheets(rows) {
+  if (!SHEETS_WEBHOOK || !rows.length) return;
+  fetch(SHEETS_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rows }),
+  }).catch(() => {});
+}
 
-app.use(express.static(path.join(__dirname, 'public')));
+// --- DB setup -----------------------------------------------------------
+// Prefer a Railway volume mounted at /data (survives redeploys). Falls back
+// to a local file so the app still runs before a volume is attached.
+const DATA_DIR = fs.existsSync("/data") ? "/data" : __dirname;
+const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, "hummusfit.db");
+const db = new Database(DB_PATH);
+db.pragma("journal_mode = WAL");
 
-// ---------- Products ----------
-app.get('/api/products', (req, res) => {
-  res.json(db.prepare('SELECT * FROM products ORDER BY category, name').all());
+db.exec(`
+CREATE TABLE IF NOT EXISTS meals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS components (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  meal_id INTEGER NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  target_portion_g REAL,
+  sort_order INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS cook_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  component_id INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+  raw_weight_g REAL NOT NULL,
+  cooked_weight_g REAL NOT NULL,
+  notes TEXT,
+  logged_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS portion_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  component_id INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+  crew TEXT NOT NULL,
+  weight_g REAL NOT NULL,
+  logged_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS drafts (
+  component_id INTEGER PRIMARY KEY REFERENCES components(id) ON DELETE CASCADE,
+  raw_weight_g REAL,
+  cooked_weight_g REAL,
+  crew_a_g REAL,
+  crew_b_g REAL,
+  notes TEXT,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+`);
+
+// --- migration: add label/nutrition columns to components if missing ------
+const existingCols = db.prepare("PRAGMA table_info(components)").all().map((c) => c.name);
+const newCols = [
+  ["common_name", "TEXT"],
+  ["sub_ingredients", "TEXT"], // e.g. "Cucumbers, Vinegar, Salt, Calcium Chloride" for a compound ingredient
+  ["allergens", "TEXT"], // comma-separated, e.g. "Milk, Soy"
+  ["calories_per_g", "REAL"],
+  ["protein_g_per_g", "REAL"],
+  ["carbs_g_per_g", "REAL"],
+  ["fat_g_per_g", "REAL"],
+  ["sodium_mg_per_g", "REAL"],
+];
+newCols.forEach(([col, type]) => {
+  if (!existingCols.includes(col)) {
+    db.exec(`ALTER TABLE components ADD COLUMN ${col} ${type}`);
+  }
 });
 
-// ---------- Floor plan / lanes ----------
-app.get('/api/lanes', (req, res) => {
-  const lanes = db.prepare(`
-    SELECT
-      l.id, l.code, l.section, l.row_num, l.position_num,
-      la.product_id, la.crates_current, la.max_stack,
-      p.name AS product_name, p.category, p.cap, p.u30,
-      p.target_crates, p.target_crates_source,
-      EXISTS(SELECT 1 FROM restock_log WHERE restock_log.lane_id = l.id) AS ever_stocked
-    FROM lanes l
-    LEFT JOIN lane_assignments la ON la.lane_id = l.id
-    LEFT JOIN products p ON p.id = la.product_id
-    ORDER BY l.section, l.row_num, l.position_num
-  `).all();
-  res.json(lanes);
-});
+// --- helpers --------------------------------------------------------------
+function avgCookYieldPct(componentId) {
+  const rows = db
+    .prepare(
+      "SELECT raw_weight_g, cooked_weight_g FROM cook_logs WHERE component_id = ?"
+    )
+    .all(componentId);
+  if (!rows.length) return null;
+  const ratios = rows
+    .filter((r) => r.raw_weight_g > 0)
+    .map((r) => r.cooked_weight_g / r.raw_weight_g);
+  if (!ratios.length) return null;
+  return (ratios.reduce((a, b) => a + b, 0) / ratios.length) * 100;
+}
 
-// ---------- Live crate targets (both fridges read this) ----------
-// Simple name -> live target map, sourced from Shopify on-hand inventory
-// instead of the old 3.5-day demand forecast. This is what backstock's
-// static-generated pages fetch client-side to overlay real numbers on top
-// of the last-generated snapshot, and what /api/lanes' target_crates field
-// is built from for the main walk-in.
-app.get('/api/target-crates', (req, res) => {
-  const rows = db.prepare(`
-    SELECT name, cap, target_crates, target_crates_source FROM products
-    WHERE target_crates IS NOT NULL
-  `).all();
-  const lastSync = db.prepare(`SELECT value FROM meta WHERE key = 'shopify_last_sync'`).get();
-  res.json({
-    last_sync: lastSync ? lastSync.value : null,
-    products: Object.fromEntries(rows.map((r) => [r.name, { target_crates: r.target_crates, cap: r.cap }])),
+function avgPortionByCrew(componentId) {
+  const rows = db
+    .prepare("SELECT crew, weight_g FROM portion_logs WHERE component_id = ?")
+    .all(componentId);
+  const byCrew = {};
+  rows.forEach((r) => {
+    byCrew[r.crew] = byCrew[r.crew] || [];
+    byCrew[r.crew].push(r.weight_g);
   });
+  const out = {};
+  Object.keys(byCrew).forEach((crew) => {
+    const arr = byCrew[crew];
+    out[crew] = arr.reduce((a, b) => a + b, 0) / arr.length;
+  });
+  return out;
+}
+
+function getDraft(componentId) {
+  return db.prepare("SELECT * FROM drafts WHERE component_id = ?").get(componentId) || null;
+}
+
+function componentSummary(component) {
+  const yieldPct = avgCookYieldPct(component.id);
+  const crewAvgs = avgPortionByCrew(component.id);
+  const crewVals = Object.values(crewAvgs);
+  let gapG = null,
+    gapPct = null;
+  if (crewVals.length >= 2) {
+    const max = Math.max(...crewVals);
+    const min = Math.min(...crewVals);
+    gapG = max - min;
+    const mean = crewVals.reduce((a, b) => a + b, 0) / crewVals.length;
+    gapPct = mean ? (gapG / mean) * 100 : null;
+  }
+  return {
+    id: component.id,
+    name: component.name,
+    target_portion_g: component.target_portion_g,
+    avg_cook_yield_pct: yieldPct,
+    crew_avgs_g: crewAvgs,
+    crew_gap_g: gapG,
+    crew_gap_pct: gapPct,
+    common_name: component.common_name || null,
+    sub_ingredients: component.sub_ingredients || null,
+    allergens: component.allergens || null,
+    calories_per_g: component.calories_per_g,
+    protein_g_per_g: component.protein_g_per_g,
+    carbs_g_per_g: component.carbs_g_per_g,
+    fat_g_per_g: component.fat_g_per_g,
+    sodium_mg_per_g: component.sodium_mg_per_g,
+    draft: getDraft(component.id),
+  };
+}
+
+// --- Meals CRUD -------------------------------------------------------
+app.get("/api/meals", (req, res) => {
+  const meals = db.prepare("SELECT * FROM meals ORDER BY id DESC").all();
+  const withComponents = meals.map((m) => {
+    const components = db
+      .prepare(
+        "SELECT * FROM components WHERE meal_id = ? ORDER BY sort_order, id"
+      )
+      .all(m.id)
+      .map(componentSummary);
+    return { ...m, components };
+  });
+  res.json(withComponents);
 });
 
-// ---------- Shopify connection (one-time grant + live inventory sync) ----------
-app.get('/shopify/install', (req, res) => {
-  if (!shopify.configured()) {
-    return res.status(500).send('Missing SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET / SHOPIFY_SHOP env vars.');
-  }
-  const redirectUri = `${req.protocol}://${req.get('host')}/shopify/callback`;
-  res.redirect(shopify.installUrl(redirectUri));
+app.post("/api/meals", (req, res) => {
+  const { name, components } = req.body;
+  if (!name) return res.status(400).json({ error: "name is required" });
+  const insertMeal = db.prepare("INSERT INTO meals (name) VALUES (?)");
+  const result = insertMeal.run(name);
+  const mealId = result.lastInsertRowid;
+  const insertComp = db.prepare(
+    "INSERT INTO components (meal_id, name, target_portion_g, sort_order) VALUES (?, ?, ?, ?)"
+  );
+  (components || []).forEach((c, idx) => {
+    insertComp.run(mealId, c.name, c.target_portion_g || null, idx);
+  });
+  res.json({ id: mealId });
 });
 
-app.get('/shopify/callback', async (req, res) => {
-  const { code, state } = req.query;
-  if (!code || !state || !shopify.verifyState(state)) {
-    return res.status(400).send('Invalid or expired install request -- go back to /shopify/install and try again.');
+app.delete("/api/meals/:id", (req, res) => {
+  db.prepare("DELETE FROM meals WHERE id = ?").run(req.params.id);
+  res.json({ status: "ok" });
+});
+
+app.post("/api/meals/:id/components", (req, res) => {
+  const { name, target_portion_g } = req.body;
+  const count = db
+    .prepare("SELECT COUNT(*) c FROM components WHERE meal_id = ?")
+    .get(req.params.id).c;
+  const result = db
+    .prepare(
+      "INSERT INTO components (meal_id, name, target_portion_g, sort_order) VALUES (?, ?, ?, ?)"
+    )
+    .run(req.params.id, name, target_portion_g || null, count);
+  res.json({ id: result.lastInsertRowid });
+});
+
+app.patch("/api/components/:id", (req, res) => {
+  const fields = [
+    "target_portion_g",
+    "name",
+    "common_name",
+    "sub_ingredients",
+    "allergens",
+    "calories_per_g",
+    "protein_g_per_g",
+    "carbs_g_per_g",
+    "fat_g_per_g",
+    "sodium_mg_per_g",
+  ];
+  const sets = [];
+  const vals = [];
+  fields.forEach((f) => {
+    if (req.body[f] !== undefined) {
+      sets.push(`${f} = ?`);
+      vals.push(req.body[f]);
+    }
+  });
+  if (!sets.length) return res.json({ status: "ok" });
+  vals.push(req.params.id);
+  db.prepare(`UPDATE components SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+  res.json({ status: "ok" });
+});
+
+// --- Logging ------------------------------------------------------------
+function componentWithMealName(componentId) {
+  return db
+    .prepare(
+      `SELECT components.id, components.name AS component_name, meals.id AS meal_id, meals.name AS meal_name
+       FROM components JOIN meals ON meals.id = components.meal_id
+       WHERE components.id = ?`
+    )
+    .get(componentId);
+}
+
+app.post("/api/components/:id/cook-log", (req, res) => {
+  const { raw_weight_g, cooked_weight_g, notes } = req.body;
+  if (!raw_weight_g || !cooked_weight_g)
+    return res.status(400).json({ error: "raw_weight_g and cooked_weight_g required" });
+  db.prepare(
+    "INSERT INTO cook_logs (component_id, raw_weight_g, cooked_weight_g, notes) VALUES (?, ?, ?, ?)"
+  ).run(req.params.id, raw_weight_g, cooked_weight_g, notes || null);
+  db.prepare(
+    "UPDATE drafts SET raw_weight_g = NULL, cooked_weight_g = NULL WHERE component_id = ?"
+  ).run(req.params.id);
+  const ctx = componentWithMealName(req.params.id);
+  if (ctx) {
+    syncToSheets([{
+      timestamp: new Date().toISOString(),
+      meal_id: "M" + String(ctx.meal_id).padStart(3, "0"),
+      meal_name: ctx.meal_name,
+      component: ctx.component_name,
+      raw_weight_g, cooked_weight_g,
+      cook_yield_pct: ((cooked_weight_g / raw_weight_g) * 100).toFixed(1),
+      crew_a_g: "", crew_b_g: "",
+      notes: notes || "",
+    }]);
   }
-  try {
-    const token = await shopify.exchangeCodeForToken(code);
-    shopify.saveToken(db, token);
-    const result = await shopify.syncInventory(db);
-    res.send(
-      `Connected to Shopify. Matched ${result.matched} products on the first sync ` +
-      `(${result.unmatchedCount} product names didn't match anything in Shopify -- check spelling). ` +
-      `Live crate targets will now refresh automatically. You can close this tab.`
+  res.json({ status: "ok", yield_pct: (cooked_weight_g / raw_weight_g) * 100 });
+});
+
+app.post("/api/components/:id/portion-log", (req, res) => {
+  const { crew, weight_g } = req.body;
+  if (!crew || !weight_g)
+    return res.status(400).json({ error: "crew and weight_g required" });
+  db.prepare(
+    "INSERT INTO portion_logs (component_id, crew, weight_g) VALUES (?, ?, ?)"
+  ).run(req.params.id, crew, weight_g);
+  if (crew === "Crew A") {
+    db.prepare("UPDATE drafts SET crew_a_g = NULL WHERE component_id = ?").run(req.params.id);
+  } else if (crew === "Crew B") {
+    db.prepare("UPDATE drafts SET crew_b_g = NULL WHERE component_id = ?").run(req.params.id);
+  }
+  const ctx = componentWithMealName(req.params.id);
+  if (ctx) {
+    syncToSheets([{
+      timestamp: new Date().toISOString(),
+      meal_id: "M" + String(ctx.meal_id).padStart(3, "0"),
+      meal_name: ctx.meal_name,
+      component: ctx.component_name,
+      raw_weight_g: "", cooked_weight_g: "", cook_yield_pct: "",
+      crew_a_g: crew === "Crew A" ? weight_g : "",
+      crew_b_g: crew === "Crew B" ? weight_g : "",
+      notes: "",
+    }]);
+  }
+  res.json({ status: "ok" });
+});
+
+// --- Autosave drafts (fires every 30s from the client) ---------------------
+// Saves whatever is currently typed but not yet submitted, so closing the
+// tab / losing connection doesn't lose in-progress entries.
+app.put("/api/components/:id/draft", (req, res) => {
+  const { raw_weight_g, cooked_weight_g, crew_a_g, crew_b_g, notes } = req.body;
+  const exists = db.prepare("SELECT 1 FROM drafts WHERE component_id = ?").get(req.params.id);
+  if (exists) {
+    db.prepare(
+      `UPDATE drafts SET raw_weight_g=?, cooked_weight_g=?, crew_a_g=?, crew_b_g=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE component_id=?`
+    ).run(
+      raw_weight_g ?? null,
+      cooked_weight_g ?? null,
+      crew_a_g ?? null,
+      crew_b_g ?? null,
+      notes ?? null,
+      req.params.id
     );
-  } catch (err) {
-    console.error('Shopify OAuth callback failed:', err);
-    res.status(500).send(`Something went wrong connecting to Shopify: ${err.message}`);
+  } else {
+    db.prepare(
+      `INSERT INTO drafts (component_id, raw_weight_g, cooked_weight_g, crew_a_g, crew_b_g, notes) VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(
+      req.params.id,
+      raw_weight_g ?? null,
+      cooked_weight_g ?? null,
+      crew_a_g ?? null,
+      crew_b_g ?? null,
+      notes ?? null
+    );
   }
+  res.json({ status: "ok" });
 });
 
-app.get('/api/shopify/status', (req, res) => {
-  const token = shopify.getToken(db);
-  const savedAt = db.prepare(`SELECT value FROM meta WHERE key = 'shopify_token_saved_at'`).get();
-  const lastSync = db.prepare(`SELECT value FROM meta WHERE key = 'shopify_last_sync'`).get();
-  const matched = db.prepare(`SELECT COUNT(*) AS n FROM products WHERE target_crates IS NOT NULL`).get().n;
-  const total = db.prepare(`SELECT COUNT(*) AS n FROM products`).get().n;
+// --- One-time roster seed ---------------------------------------------
+// Idempotent: skips any name that already exists, so it's safe to hit more
+// than once (e.g. after adding more meals to the list later).
+const SEED_MEALS = [
+  "6-Guys Patty Melt","Arnold 2022 Bowl","Baja Chicken Tacos",
+  "Baked Herbed Tilapia (1lb Competition Approved)","BBQ Chicken Garlic Parm Potatoes",
+  "BBQ Chicken Mac Bowl","BBQ Meltdown","Blueberry French Toast","Breakfast Burrito",
+  "Brookfield Chicken Bowl","Broritto Burrito","Buffalo Chicken Meatballs",
+  "Buffalo Chicken Quesadilla","Buffalo Crispy Chicken Wrap","Buffalo Mac N Chicken",
+  "Cheeseburger Bowl","Chicken Mushroom Pot Stickers","Chicken Stir Fry",
+  "Chicken Taco Bowl","Chipotle Chicken (1lb Competition Approved)",
+  "Cinnamon Roll Pancakes","Closed on Sunday Crispy Chicken Bowl","Club Wrap",
+  "Competition Approved 90/10 Lean Ground Beef (1lb)",
+  "Competition Approved Baked Sweet Potato Fries (1lb)",
+  "Competition Approved Chicken Kebab (1lb)","Competition Approved Grilled Chicken (1lb)",
+  "Competition Approved Grilled Chicken W/ Smokin Poppie Sauce (1lb)",
+  "Competition Approved Grilled Flank Steak (1lb)",
+  "Competition Approved Lemon Pepper Salmon (1lb)","Competition Approved Oven Baked Cod (1lb)",
+  "Competition Approved Sticky Rice (1lb)","Competition Approved White Basmati Rice (1lb)",
+  "Crispy Baked Chicken Wrap","Crispy Vegan Wrap","Farfalle & Chicken Alfredo",
+  "Fit Ala Vodka With Chicken","Fit-Fil-A","GLORIOUS GAINS Steak Bites & Cilantro Lime Rice",
+  "Gluten Free Carbonara Chicken","Grilled Chicken Parmesan Wrap","Grilled Chicken Pesto Wrap",
+  "Herb Butter Steak Tips Bowl","Hey Arnold! Burrito","HFit Signature Fold",
+  "Honey Garlic Crispy Chicken Tacos","Hot Honey Steak & Mac","Keto Ricotta Meatballs",
+  "Lo Mein Teriyaki Steak","Low Carb Keto Cheeseburger Bowl","Meatball Parmesan Wrap",
+  "MsWendy Buff Nuggets","Nacho Average Bowl","Nacho Average Vegan Bowl",
+  "Philly Cheesesteak Quesadilla","Pineapple Teriyaki Meatballs","Rigatoni & Meatballs",
+  "Soho Steak Bowl","Southwest Chicken Bowl","Southwest Chicken Quesadilla",
+  "Spicy Buffalo Wrap","Stacked and Jacked","Strawberry Protein French Toast",
+  "Strongsville Chicken Ranch Fold","Taco Build Quesadilla","Teriyaki Flank Bowl",
+  "Texas Queso Steak Bowl","TexMex Potato Hash","Thai Chili Chicken",
+  "The Arches Mac Daddy Wrap","The Clean Bulk Pasta Bowl","Turkey Bacon Cheddar Egg Muffins",
+  "Vegan Breakfast Sandwich","Vegan Cheeseburger Bowl","Vegan Chorizo Quesadilla",
+  "West Coast Secret Sauce Bowl","Zeus Bowl","Zeus Bowl V2",
+  "(Blank Meal 1)","(Blank Meal 2)","(Blank Meal 3)","(Blank Meal 4)","(Blank Meal 5)",
+  "(Blank Meal 6)","(Blank Meal 7)","(Blank Meal 8)","(Blank Meal 9)","(Blank Meal 10)",
+];
+
+app.get("/api/seed-meals", (req, res) => {
+  const insertMeal = db.prepare("INSERT INTO meals (name) VALUES (?)");
+  const exists = db.prepare("SELECT 1 FROM meals WHERE name = ?");
+  let added = 0, skipped = 0;
+  SEED_MEALS.forEach((name) => {
+    if (exists.get(name)) { skipped++; return; }
+    insertMeal.run(name);
+    added++;
+  });
+  res.json({ status: "ok", added, skipped, total_seed_list: SEED_MEALS.length });
+});
+
+// --- USDA-style ingredient statement + nutrition mini-calculator ----------
+// NOTE: this is a planning tool, not a certified nutrition analysis.
+// Nutrient densities are whatever the user enters per component (g of raw
+// ingredient or a spec-sheet value) -- garbage in, garbage out. Before this
+// goes on a retail label, run the final formulation through a verified
+// nutrition analysis (lab panel or software such as Genesis/ESHA) and
+// confirm FDA vs USDA-FSIS jurisdiction for the ingredient statement format.
+app.get("/api/meals/:id/label", (req, res) => {
+  const meal = db.prepare("SELECT * FROM meals WHERE id = ?").get(req.params.id);
+  if (!meal) return res.status(404).json({ error: "meal not found" });
+  const components = db
+    .prepare("SELECT * FROM components WHERE meal_id = ? ORDER BY sort_order, id")
+    .all(meal.id);
+
+  // Descending order by weight in the finished product (target portion weight),
+  // which is the FDA/USDA rule for ingredient statement ordering.
+  const ordered = [...components].sort(
+    (a, b) => (b.target_portion_g || 0) - (a.target_portion_g || 0)
+  );
+
+  const missingWeights = ordered.filter((c) => !c.target_portion_g);
+
+  const ingredientParts = ordered.map((c) => {
+    const label = c.common_name || c.name;
+    if (c.sub_ingredients) {
+      return `${label} (${c.sub_ingredients})`;
+    }
+    return label;
+  });
+  const ingredientStatement = ingredientParts.join(", ");
+
+  const allergenSet = new Set();
+  components.forEach((c) => {
+    if (c.allergens) {
+      c.allergens.split(",").map((a) => a.trim()).filter(Boolean).forEach((a) => allergenSet.add(a));
+    }
+  });
+  const containsStatement = allergenSet.size ? `Contains: ${[...allergenSet].join(", ")}` : "";
+
+  let servingWeight = 0, calories = 0, protein = 0, carbs = 0, fat = 0, sodium = 0;
+  let nutritionComplete = true;
+  components.forEach((c) => {
+    const w = c.target_portion_g || 0;
+    servingWeight += w;
+    if (c.calories_per_g == null) nutritionComplete = false;
+    calories += w * (c.calories_per_g || 0);
+    protein += w * (c.protein_g_per_g || 0);
+    carbs += w * (c.carbs_g_per_g || 0);
+    fat += w * (c.fat_g_per_g || 0);
+    sodium += w * (c.sodium_mg_per_g || 0);
+  });
+
   res.json({
-    connected: Boolean(token),
-    connected_at: savedAt ? savedAt.value : null,
-    last_sync: lastSync ? lastSync.value : null,
-    products_with_live_target: matched,
-    products_total: total,
+    meal: meal.name,
+    ingredient_statement: ingredientStatement,
+    contains_statement: containsStatement,
+    ingredient_order_warning: missingWeights.length
+      ? `${missingWeights.map((c) => c.name).join(", ")} have no locked target portion weight -- ordering may be wrong until they're set.`
+      : null,
+    nutrition: {
+      serving_weight_g: servingWeight,
+      calories,
+      protein_g: protein,
+      carbs_g: carbs,
+      fat_g: fat,
+      sodium_mg: sodium,
+      is_estimate_complete: nutritionComplete,
+    },
   });
 });
 
-// Manual trigger, e.g. right after connecting or for testing -- the periodic
-// job below handles normal refresh so nobody needs to remember to call this.
-app.post('/api/shopify/sync', async (req, res) => {
-  try {
-    const result = await shopify.syncInventory(db);
-    res.json({ ok: true, ...result });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+// --- THE CALCULATOR -------------------------------------------------------
+// Mode A: "I want N finished meals" -> raw weight to cook, per component.
+// Mode B: "I have X g raw of component Y" -> max meals that component supports,
+//         then the raw needed for every other component to match that count.
+app.post("/api/meals/:id/calculate", (req, res) => {
+  const meal = db.prepare("SELECT * FROM meals WHERE id = ?").get(req.params.id);
+  if (!meal) return res.status(404).json({ error: "meal not found" });
+  const components = db
+    .prepare("SELECT * FROM components WHERE meal_id = ? ORDER BY sort_order, id")
+    .all(meal.id)
+    .map(componentSummary);
+
+  const missing = components.filter(
+    (c) => c.avg_cook_yield_pct == null || !c.target_portion_g
+  );
+
+  function rawNeededFor(targetMeals) {
+    return components.map((c) => {
+      const cookedNeeded = c.target_portion_g * targetMeals;
+      const rawNeeded =
+        c.avg_cook_yield_pct != null
+          ? cookedNeeded / (c.avg_cook_yield_pct / 100)
+          : null;
+      return {
+        component: c.name,
+        target_portion_g: c.target_portion_g,
+        avg_cook_yield_pct: c.avg_cook_yield_pct,
+        cooked_weight_needed_g: cookedNeeded,
+        raw_weight_to_cook_g: rawNeeded,
+      };
+    });
   }
-});
 
-// Assign (or clear) a product to a lane. Body: { product_id: number|null, max_stack?: number }
-app.put('/api/lanes/:id/assign', (req, res) => {
-  const laneId = Number(req.params.id);
-  const { product_id, max_stack } = req.body;
-  const lane = db.prepare('SELECT * FROM lanes WHERE id = ?').get(laneId);
-  if (!lane) return res.status(404).json({ error: 'lane not found' });
-
-  const existing = db.prepare('SELECT * FROM lane_assignments WHERE lane_id = ?').get(laneId);
-  if (product_id == null) {
-    if (existing) db.prepare('DELETE FROM lane_assignments WHERE lane_id = ?').run(laneId);
-    return res.json({ ok: true, cleared: true });
-  }
-
-  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(product_id);
-  if (!product) return res.status(404).json({ error: 'product not found' });
-
-  if (existing) {
-    db.prepare(`
-      UPDATE lane_assignments SET product_id = ?, max_stack = COALESCE(?, max_stack), updated_at = CURRENT_TIMESTAMP
-      WHERE lane_id = ?
-    `).run(product_id, max_stack ?? null, laneId);
+  let result;
+  if (req.body.mode === "forMeals") {
+    const targetMeals = Number(req.body.targetMeals);
+    if (!targetMeals || targetMeals <= 0)
+      return res.status(400).json({ error: "targetMeals must be > 0" });
+    result = {
+      mode: "forMeals",
+      target_meals: targetMeals,
+      components: rawNeededFor(targetMeals),
+    };
+  } else if (req.body.mode === "fromRaw") {
+    const { componentName, rawWeightAvailable } = req.body;
+    const comp = components.find(
+      (c) => c.name.toLowerCase() === String(componentName || "").toLowerCase()
+    );
+    if (!comp) return res.status(400).json({ error: "component not found on this meal" });
+    if (comp.avg_cook_yield_pct == null || !comp.target_portion_g)
+      return res.status(400).json({
+        error: `${comp.name} is missing cook-yield data or a locked target portion weight`,
+      });
+    const cookedAvailable =
+      rawWeightAvailable * (comp.avg_cook_yield_pct / 100);
+    const mealsPossible = Math.floor(cookedAvailable / comp.target_portion_g);
+    result = {
+      mode: "fromRaw",
+      based_on_component: comp.name,
+      raw_weight_available_g: rawWeightAvailable,
+      cooked_weight_available_g: cookedAvailable,
+      max_meals_possible: mealsPossible,
+      components: rawNeededFor(mealsPossible),
+    };
   } else {
-    db.prepare(`
-      INSERT INTO lane_assignments (lane_id, product_id, crates_current, max_stack)
-      VALUES (?, ?, 0, COALESCE(?, 5))
-    `).run(laneId, product_id, max_stack ?? null);
+    return res.status(400).json({ error: "mode must be 'forMeals' or 'fromRaw'" });
   }
-  res.json({ ok: true });
+
+  res.json({
+    meal: meal.name,
+    warnings: missing.length
+      ? missing.map(
+          (c) =>
+            `${c.name}: ${
+              c.avg_cook_yield_pct == null ? "no cook-yield log yet" : ""
+            } ${c.target_portion_g ? "" : "no target portion weight locked"}`.trim()
+        )
+      : [],
+    ...result,
+  });
 });
 
-// ---------- Restock ----------
-// Add crates to a lane. Body: { crates_added: number }
-app.post('/api/lanes/:id/restock', (req, res) => {
-  const laneId = Number(req.params.id);
-  const { crates_added } = req.body;
-  if (!Number.isFinite(crates_added) || crates_added === 0) {
-    return res.status(400).json({ error: 'crates_added must be a non-zero number' });
-  }
-  const assignment = db.prepare('SELECT * FROM lane_assignments WHERE lane_id = ?').get(laneId);
-  if (!assignment) return res.status(400).json({ error: 'lane has no product assigned' });
-
-  const newCount = Math.max(0, assignment.crates_current + crates_added);
-  db.prepare(`
-    UPDATE lane_assignments SET crates_current = ?, updated_at = CURRENT_TIMESTAMP WHERE lane_id = ?
-  `).run(newCount, laneId);
-  db.prepare(`
-    INSERT INTO restock_log (lane_id, product_id, crates_added) VALUES (?, ?, ?)
-  `).run(laneId, assignment.product_id, crates_added);
-
-  res.json({ ok: true, crates_current: newCount });
-});
-
-// Recent restock activity feed
-app.get('/api/restock-log', (req, res) => {
-  const rows = db.prepare(`
-    SELECT r.id, r.crates_added, r.ts, l.code AS lane_code, p.name AS product_name
-    FROM restock_log r
-    JOIN lanes l ON l.id = r.lane_id
-    LEFT JOIN products p ON p.id = r.product_id
-    ORDER BY r.ts DESC
-    LIMIT 100
-  `).all();
-  res.json(rows);
-});
-
-// Lanes running low: fewer crates than max_stack - 1 (i.e. down to the top/reserve crate or below)
-app.get('/api/low-stock', (req, res) => {
-  const rows = db.prepare(`
-    SELECT l.code, l.section, la.crates_current, la.max_stack, p.name AS product_name, p.cap
-    FROM lane_assignments la
-    JOIN lanes l ON l.id = la.lane_id
-    JOIN products p ON p.id = la.product_id
-    WHERE la.crates_current <= 1
-      AND EXISTS(SELECT 1 FROM restock_log WHERE restock_log.lane_id = l.id)
-    ORDER BY la.crates_current ASC, l.section, l.code
-  `).all();
-  res.json(rows);
-});
+app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Hummus Fit warehouse app running on port ${PORT}`);
-});
-
-// ---------- Periodic live inventory refresh ----------
-// Every 20 minutes, if we've been granted access, re-pull Shopify on-hand
-// inventory and update products.target_crates. Skips silently (with a log
-// line) if /shopify/install hasn't been completed yet -- this is not fatal,
-// the app just keeps showing whatever crate numbers it last had.
-const SYNC_INTERVAL_MS = 20 * 60 * 1000;
-async function runScheduledSync() {
-  if (!shopify.configured() || !shopify.getToken(db)) return;
-  try {
-    const result = await shopify.syncInventory(db);
-    console.log(`Shopify inventory sync: matched ${result.matched} products, ${result.unmatchedCount} unmatched.`);
-  } catch (err) {
-    console.error('Scheduled Shopify sync failed:', err.message);
-  }
-}
-setInterval(runScheduledSync, SYNC_INTERVAL_MS);
-// Also try once shortly after boot, in case the token was already saved
-// from a previous deploy (the volume persists it across redeploys).
-setTimeout(runScheduledSync, 15 * 1000);
+app.listen(PORT, () => console.log(`Hummus Fit Yield Platform running on :${PORT}`));
