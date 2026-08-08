@@ -136,6 +136,8 @@
   <div class="tabs">
     <div class="tab active" id="tab-meals" onclick="switchTab('meals')">Meals & Logging</div>
     <div class="tab" id="tab-calc" onclick="switchTab('calc')">Calculator</div>
+    <div class="tab" id="tab-stations" onclick="switchTab('stations')">Stations</div>
+    <div class="tab" id="tab-batches" onclick="switchTab('batches')">Batches</div>
   </div>
 </div>
 </div>
@@ -143,7 +145,6 @@
 
 <main>
   <div id="view-meals">
-    <div class="headline">Log It Once.<br>Trust It Forever.</div>
     <div id="mealList"></div>
   </div>
 
@@ -163,6 +164,35 @@
       <button class="btn btn-orange btn-full" style="margin-top:14px;" onclick="runCalc()">Calculate</button>
       <div id="calcResult"></div>
     </div>
+  </div>
+
+  <div id="view-stations" style="display:none;">
+    <div class="headline">Stations.</div>
+    <div style="padding:0 16px 8px;color:#8a8f98;font-size:13px;">Assign a prep station to every component below, then use Print for a station-by-station sheet. Changes save automatically.</div>
+    <div style="padding:0 16px 12px;">
+      <input type="text" id="stationFilter" placeholder="Filter by meal or component…" style="width:100%;" oninput="renderStations()">
+      <button class="btn btn-secondary" style="margin-top:10px;" onclick="window.print()">🖨 Print Station Sheet</button>
+    </div>
+    <div id="stationTableWrap" style="padding:0 16px 40px;overflow-x:auto;"></div>
+  </div>
+
+  <div id="view-batches" style="display:none;">
+    <div class="headline">Batches.</div>
+    <div style="padding:0 16px 12px;">
+      <div class="section-label">Meal</div>
+      <select id="batchMeal" style="width:100%;" onchange="onBatchMealChange()"></select>
+    </div>
+    <div id="batchNewForm" style="padding:0 16px 16px;display:none;">
+      <div class="calc-card">
+        <div class="section-label">Start a new batch for this meal</div>
+        <div class="inline-form" style="grid-template-columns:1fr 1fr auto;">
+          <input type="text" id="newBatchLabel" placeholder="Label (e.g. 4 trays, Tue AM)">
+          <input type="number" id="newBatchTarget" placeholder="Target # of meals (optional)">
+          <button class="miniBtn" onclick="createBatch()">Start Batch</button>
+        </div>
+      </div>
+    </div>
+    <div id="batchList" style="padding:0 16px 40px;"></div>
   </div>
 </main>
 
@@ -194,9 +224,185 @@ function haptic(p){ if(navigator.vibrate){ try{navigator.vibrate(p||10);}catch(e
 function switchTab(name){
   document.getElementById('tab-meals').classList.toggle('active', name==='meals');
   document.getElementById('tab-calc').classList.toggle('active', name==='calc');
+  document.getElementById('tab-stations').classList.toggle('active', name==='stations');
+  document.getElementById('tab-batches').classList.toggle('active', name==='batches');
   document.getElementById('view-meals').style.display = name==='meals' ? '' : 'none';
   document.getElementById('view-calc').style.display = name==='calc' ? '' : 'none';
+  document.getElementById('view-stations').style.display = name==='stations' ? '' : 'none';
+  document.getElementById('view-batches').style.display = name==='batches' ? '' : 'none';
   if(name==='calc') populateCalcMeals();
+  if(name==='stations') renderStations();
+  if(name==='batches') populateBatchMeals();
+}
+
+// --- Batches ---------------------------------------------------------
+let batchYieldCache = {}; // batchId -> yield report
+let openBatches = new Set();
+
+function populateBatchMeals(){
+  const sel = document.getElementById('batchMeal');
+  const prev = sel.value;
+  sel.innerHTML = meals.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('');
+  if(prev && meals.some(m=>String(m.id)===prev)) sel.value = prev;
+  onBatchMealChange();
+}
+
+function onBatchMealChange(){
+  const mealId = document.getElementById('batchMeal').value;
+  document.getElementById('batchNewForm').style.display = mealId ? '' : 'none';
+  if(mealId) loadBatches(mealId);
+}
+
+async function createBatch(){
+  const mealId = document.getElementById('batchMeal').value;
+  if(!mealId) return;
+  const label = document.getElementById('newBatchLabel').value.trim() || null;
+  const target = parseInt(document.getElementById('newBatchTarget').value) || null;
+  await fetch(`/api/meals/${mealId}/batches`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({label, target_meal_count: target})});
+  document.getElementById('newBatchLabel').value = '';
+  document.getElementById('newBatchTarget').value = '';
+  haptic(15); toast('Batch started');
+  loadBatches(mealId);
+}
+
+async function loadBatches(mealId){
+  const listEl = document.getElementById('batchList');
+  listEl.innerHTML = '<div class="comp-stat">Loading…</div>';
+  const res = await fetch(`/api/meals/${mealId}/batches`);
+  const batches = await res.json();
+  if(!batches.length){ listEl.innerHTML = '<div class="comp-stat">No batches yet for this meal — start one above.</div>'; return; }
+  listEl.innerHTML = batches.map(b => `
+    <div class="mealCard" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleBatch(${b.id})">
+        <div>
+          <b>${esc(b.label || ('Batch #'+b.id))}</b>
+          <div class="comp-stat">${b.target_meal_count ? 'Target: '+b.target_meal_count+' meals' : 'No target set'} · ${esc(b.created_at)}</div>
+        </div>
+        <div>▾</div>
+      </div>
+      <div id="batchDetail-${b.id}" style="${openBatches.has(b.id)?'':'display:none;'}margin-top:12px;"></div>
+    </div>
+  `).join('');
+  batches.forEach(b => { if(openBatches.has(b.id)) fetchBatchDetail(b.id); });
+}
+
+function toggleBatch(batchId){
+  if(openBatches.has(batchId)){ openBatches.delete(batchId); document.getElementById('batchDetail-'+batchId).style.display='none'; }
+  else{ openBatches.add(batchId); document.getElementById('batchDetail-'+batchId).style.display=''; fetchBatchDetail(batchId); }
+}
+
+async function fetchBatchDetail(batchId){
+  const res = await fetch(`/api/batches/${batchId}`);
+  const data = await res.json();
+  batchYieldCache[batchId] = data;
+  renderBatchDetail(batchId);
+}
+
+function statusColor(status){
+  if(status==='short') return '#e05252';
+  if(status==='surplus') return '#3ba55c';
+  if(status==='on_target') return '#4a9eff';
+  return '#8a8f98';
+}
+
+function renderBatchDetail(batchId){
+  const data = batchYieldCache[batchId];
+  const el = document.getElementById('batchDetail-'+batchId);
+  if(!el || !data) return;
+  el.innerHTML = `
+    ${data.achievable_meals_this_batch != null ? `
+      <div class="previewCard" style="margin-bottom:12px;">
+        <h4>This batch yields ${data.achievable_meals_this_batch} finished meal${data.achievable_meals_this_batch===1?'':'s'}</h4>
+        ${data.bottleneck_component ? `<div class="comp-stat">Bottleneck: ${esc(data.bottleneck_component)} — every other kitchen component has more headroom than this.</div>` : ''}
+      </div>
+    ` : `<div class="comp-stat" style="margin-bottom:12px;">Log raw/cooked weight below for each kitchen component to see the meal yield.</div>`}
+
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="text-align:left;border-bottom:1px solid #2a2f3a;">
+          <th style="padding:6px;">Component</th>
+          <th style="padding:6px;">Raw g</th>
+          <th style="padding:6px;">Cooked g</th>
+          <th style="padding:6px;"></th>
+          <th style="padding:6px;">Portions</th>
+          <th style="padding:6px;">Status</th>
+          <th style="padding:6px;">Should've cooked (raw g)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.kitchen_components.map(c => `
+          <tr style="border-bottom:1px solid #1e222b;">
+            <td style="padding:6px;">${esc(c.name)}${c.station?`<div class="comp-stat">${esc(c.station)}</div>`:''}</td>
+            <td style="padding:6px;"><input type="number" style="width:80px;" id="brw-${batchId}-${c.component_id}" value="${c.raw_weight_g ?? ''}"></td>
+            <td style="padding:6px;"><input type="number" style="width:80px;" id="bcw-${batchId}-${c.component_id}" value="${c.cooked_weight_g ?? ''}"></td>
+            <td style="padding:6px;"><button class="miniBtn" onclick="logBatchComponent(${batchId}, ${c.component_id})">Save</button></td>
+            <td style="padding:6px;">${c.portions_possible_from_this_batch ?? '—'}</td>
+            <td style="padding:6px;color:${statusColor(c.status)};">${c.status ? c.status.replace('_',' ') : '—'}${c.variance_g!=null ? ' ('+(c.variance_g>0?'+':'')+fmt(c.variance_g,0)+'g)' : ''}</td>
+            <td style="padding:6px;">${c.should_have_cooked_raw_g!=null ? fmt(c.should_have_cooked_raw_g,0)+'g' : '—'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    ${data.non_kitchen_components.length ? `
+      <div class="comp-stat" style="margin-top:10px;">Not kitchen-made (excluded from yield math): ${data.non_kitchen_components.map(c=>esc(c.name)).join(', ')}</div>
+    ` : ''}
+  `;
+}
+
+async function logBatchComponent(batchId, componentId){
+  const raw = parseFloat(document.getElementById(`brw-${batchId}-${componentId}`).value) || null;
+  const cooked = parseFloat(document.getElementById(`bcw-${batchId}-${componentId}`).value) || null;
+  await fetch(`/api/batches/${batchId}/log`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({component_id: componentId, raw_weight_g: raw, cooked_weight_g: cooked})});
+  haptic(12); toast('Logged');
+  fetchBatchDetail(batchId);
+}
+
+function renderStations(){
+  const wrap = document.getElementById('stationTableWrap');
+  const filter = (document.getElementById('stationFilter').value || '').trim().toLowerCase();
+  let rows = [];
+  meals.forEach(m=>{
+    (m.components||[]).forEach(c=>{
+      rows.push({mealId: m.id, mealName: m.name, compId: c.id, compName: c.name, station: c.station || ''});
+    });
+  });
+  if(filter){
+    rows = rows.filter(r => r.mealName.toLowerCase().includes(filter) || r.compName.toLowerCase().includes(filter) || r.station.toLowerCase().includes(filter));
+  }
+  rows.sort((a,b)=> a.mealName.localeCompare(b.mealName) || a.compName.localeCompare(b.compName));
+  if(!rows.length){ wrap.innerHTML = '<div class="comp-stat">No components yet — add meals & components first.</div>'; return; }
+  wrap.innerHTML = `
+    <table class="stationTable" style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="text-align:left;border-bottom:1px solid #2a2f3a;">
+          <th style="padding:8px 6px;">Meal</th>
+          <th style="padding:8px 6px;">Ingredient / Component</th>
+          <th style="padding:8px 6px;">Station</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr style="border-bottom:1px solid #1e222b;">
+            <td style="padding:8px 6px;">${esc(r.mealName)}</td>
+            <td style="padding:8px 6px;">${esc(r.compName)}</td>
+            <td style="padding:8px 6px;">
+              <input type="text" value="${esc(r.station)}" placeholder="Assign station…"
+                style="width:100%;background:transparent;border:1px solid #2a2f3a;border-radius:6px;padding:6px 8px;color:inherit;"
+                onchange="saveStation(${r.compId}, this.value)">
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function saveStation(componentId, value){
+  const station = value.trim() || null;
+  await fetch(`/api/components/${componentId}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({station})});
+  const m = meals.find(m => (m.components||[]).some(c=>c.id===componentId));
+  if(m){ const c = m.components.find(c=>c.id===componentId); if(c) c.station = station; }
+  toast('Station saved');
 }
 
 async function loadMeals(){
@@ -271,6 +477,8 @@ function renderComponent(c){
 
         <button class="toggle-link" onclick="toggleLabelBlock(${c.id})">⚙︎ Ingredient & nutrition data for this component</button>
         <div class="label-block" id="labelBlock-${c.id}">
+          <div class="lbl">Kitchen station (who preps this)</div>
+          <input type="text" id="station-${c.id}" value="${esc(c.station||'')}" placeholder="e.g. Grill, Steam Table, Portioning">
           <div class="lbl">Common/usual name (for label, if different)</div>
           <input type="text" id="commonName-${c.id}" value="${esc(c.common_name||'')}" placeholder="${esc(c.name)}">
           <div class="lbl">Sub-ingredients (compound ingredient — comma separated, descending by weight)</div>
@@ -339,6 +547,7 @@ function toggleLabelBlock(componentId){
 
 async function saveLabelData(componentId){
   const body = {
+    station: document.getElementById('station-'+componentId).value.trim() || null,
     common_name: document.getElementById('commonName-'+componentId).value.trim() || null,
     sub_ingredients: document.getElementById('subIng-'+componentId).value.trim() || null,
     allergens: document.getElementById('allergens-'+componentId).value.trim() || null,

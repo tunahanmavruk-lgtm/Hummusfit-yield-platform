@@ -72,6 +72,34 @@ CREATE TABLE IF NOT EXISTS drafts (
   notes TEXT,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+-- One row per real-world cook run for a meal, e.g. "the 4 batches we told
+-- the kitchen to make Tuesday morning." target_meal_count is optional --
+-- if set, it's what the batch was supposed to yield, and drives the
+-- shortage/surplus math below.
+CREATE TABLE IF NOT EXISTS cook_batches (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  meal_id INTEGER NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
+  label TEXT,
+  target_meal_count INTEGER,
+  status TEXT DEFAULT 'open',
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Per-component raw/cooked (or raw/prepared, for garnish-type items) weight
+-- actually logged against one specific batch. Separate from cook_logs so
+-- historical yield-% averages (used everywhere else) aren't skewed by
+-- entering the same batch twice, and so a batch can be edited/corrected.
+CREATE TABLE IF NOT EXISTS batch_component_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  batch_id INTEGER NOT NULL REFERENCES cook_batches(id) ON DELETE CASCADE,
+  component_id INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+  raw_weight_g REAL,
+  cooked_weight_g REAL,
+  notes TEXT,
+  logged_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(batch_id, component_id)
+);
 `);
 
 // --- migration: add label/nutrition columns to components if missing ------
@@ -85,6 +113,8 @@ const newCols = [
   ["carbs_g_per_g", "REAL"],
   ["fat_g_per_g", "REAL"],
   ["sodium_mg_per_g", "REAL"],
+  ["station", "TEXT"], // which kitchen station preps this component, e.g. "Grill", "Steam Table", "Portioning"
+  ["kitchen_produced", "INTEGER DEFAULT 1"], // 0 for things like a purchased sauce the kitchen doesn't cook/prep
 ];
 newCols.forEach(([col, type]) => {
   if (!existingCols.includes(col)) {
@@ -157,13 +187,24 @@ function componentSummary(component) {
     carbs_g_per_g: component.carbs_g_per_g,
     fat_g_per_g: component.fat_g_per_g,
     sodium_mg_per_g: component.sodium_mg_per_g,
+    station: component.station || null,
+    kitchen_produced: component.kitchen_produced == null ? true : !!component.kitchen_produced,
     draft: getDraft(component.id),
   };
 }
 
 // --- Meals CRUD -------------------------------------------------------
 app.get("/api/meals", (req, res) => {
-  const meals = db.prepare("SELECT * FROM meals ORDER BY id DESC").all();
+  // Real meals sort alphabetically; the "(Blank Meal N)" placeholders (added
+  // last, so highest id) are pushed to the bottom instead of burying real
+  // meals under a wall of blanks.
+  const meals = db
+    .prepare(
+      `SELECT * FROM meals ORDER BY
+         CASE WHEN name LIKE '(Blank Meal%' THEN 1 ELSE 0 END,
+         name COLLATE NOCASE`
+    )
+    .all();
   const withComponents = meals.map((m) => {
     const components = db
       .prepare(
@@ -221,6 +262,7 @@ app.patch("/api/components/:id", (req, res) => {
     "carbs_g_per_g",
     "fat_g_per_g",
     "sodium_mg_per_g",
+    "station",
   ];
   const sets = [];
   const vals = [];
@@ -230,6 +272,10 @@ app.patch("/api/components/:id", (req, res) => {
       vals.push(req.body[f]);
     }
   });
+  if (req.body.kitchen_produced !== undefined) {
+    sets.push("kitchen_produced = ?");
+    vals.push(req.body.kitchen_produced ? 1 : 0);
+  }
   if (!sets.length) return res.json({ status: "ok" });
   vals.push(req.params.id);
   db.prepare(`UPDATE components SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
@@ -533,6 +579,163 @@ app.post("/api/meals/:id/calculate", (req, res) => {
         )
       : [],
     ...result,
+  });
+});
+
+// --- BATCHES --------------------------------------------------------------
+// A batch = one real cook run for a meal ("we told the kitchen to make 4
+// batches Tuesday"). The kitchen logs raw/cooked (or raw/prepared, for
+// garnish) weight per kitchen-made component against that batch. From what
+// was actually cooked we compute: how many finished meals this batch
+// actually yields (the bottleneck component wins), and -- if a target was
+// set -- whether each component came in short or over, and what should
+// have been cooked instead, using that component's all-time average yield.
+
+app.get("/api/meals/:id/batches", (req, res) => {
+  const batches = db
+    .prepare("SELECT * FROM cook_batches WHERE meal_id = ? ORDER BY id DESC")
+    .all(req.params.id);
+  res.json(batches);
+});
+
+app.post("/api/meals/:id/batches", (req, res) => {
+  const meal = db.prepare("SELECT * FROM meals WHERE id = ?").get(req.params.id);
+  if (!meal) return res.status(404).json({ error: "meal not found" });
+  const { label, target_meal_count } = req.body;
+  const result = db
+    .prepare(
+      "INSERT INTO cook_batches (meal_id, label, target_meal_count) VALUES (?, ?, ?)"
+    )
+    .run(req.params.id, label || null, target_meal_count || null);
+  res.json({ id: result.lastInsertRowid });
+});
+
+app.patch("/api/batches/:id", (req, res) => {
+  const fields = ["label", "target_meal_count", "status"];
+  const sets = [];
+  const vals = [];
+  fields.forEach((f) => {
+    if (req.body[f] !== undefined) {
+      sets.push(`${f} = ?`);
+      vals.push(req.body[f]);
+    }
+  });
+  if (!sets.length) return res.json({ status: "ok" });
+  vals.push(req.params.id);
+  db.prepare(`UPDATE cook_batches SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+  res.json({ status: "ok" });
+});
+
+app.delete("/api/batches/:id", (req, res) => {
+  db.prepare("DELETE FROM cook_batches WHERE id = ?").run(req.params.id);
+  res.json({ status: "ok" });
+});
+
+// Log (or correct) one component's raw/cooked weight for this batch.
+app.post("/api/batches/:id/log", (req, res) => {
+  const batch = db.prepare("SELECT * FROM cook_batches WHERE id = ?").get(req.params.id);
+  if (!batch) return res.status(404).json({ error: "batch not found" });
+  const { component_id, raw_weight_g, cooked_weight_g, notes } = req.body;
+  if (!component_id) return res.status(400).json({ error: "component_id required" });
+  db.prepare(
+    `INSERT INTO batch_component_logs (batch_id, component_id, raw_weight_g, cooked_weight_g, notes)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(batch_id, component_id) DO UPDATE SET
+       raw_weight_g = excluded.raw_weight_g,
+       cooked_weight_g = excluded.cooked_weight_g,
+       notes = excluded.notes,
+       logged_at = CURRENT_TIMESTAMP`
+  ).run(req.params.id, component_id, raw_weight_g ?? null, cooked_weight_g ?? null, notes || null);
+
+  // Also feed this into the all-time cook_logs history (unbatched), so the
+  // component's average cook-yield% keeps improving from real batch data --
+  // but only once both weights are present, and only on first log to avoid
+  // double-counting a correction as a second cook.
+  if (raw_weight_g && cooked_weight_g) {
+    const already = db
+      .prepare(
+        `SELECT 1 FROM batch_component_logs WHERE batch_id = ? AND component_id = ? AND raw_weight_g IS NOT NULL`
+      )
+      .get(req.params.id, component_id);
+    if (!already) {
+      db.prepare(
+        "INSERT INTO cook_logs (component_id, raw_weight_g, cooked_weight_g, notes) VALUES (?, ?, ?, ?)"
+      ).run(component_id, raw_weight_g, cooked_weight_g, `Batch #${req.params.id}${batch.label ? " (" + batch.label + ")" : ""}`);
+    }
+  }
+  res.json({ status: "ok" });
+});
+
+app.get("/api/batches/:id", (req, res) => {
+  const batch = db.prepare("SELECT * FROM cook_batches WHERE id = ?").get(req.params.id);
+  if (!batch) return res.status(404).json({ error: "batch not found" });
+  const meal = db.prepare("SELECT * FROM meals WHERE id = ?").get(batch.meal_id);
+  const allComponents = db
+    .prepare("SELECT * FROM components WHERE meal_id = ? ORDER BY sort_order, id")
+    .all(batch.meal_id)
+    .map(componentSummary);
+  const logs = db
+    .prepare("SELECT * FROM batch_component_logs WHERE batch_id = ?")
+    .all(req.params.id);
+  const logByComponent = {};
+  logs.forEach((l) => (logByComponent[l.component_id] = l));
+
+  const kitchenRows = allComponents
+    .filter((c) => c.kitchen_produced)
+    .map((c) => {
+      const log = logByComponent[c.id] || null;
+      const raw = log?.raw_weight_g ?? null;
+      const cooked = log?.cooked_weight_g ?? null;
+      const yield_pct_this_batch = raw && cooked ? (cooked / raw) * 100 : null;
+      const portions_possible =
+        cooked != null && c.target_portion_g ? Math.floor(cooked / c.target_portion_g) : null;
+      const neededCookedG =
+        batch.target_meal_count && c.target_portion_g
+          ? c.target_portion_g * batch.target_meal_count
+          : null;
+      const varianceG = cooked != null && neededCookedG != null ? cooked - neededCookedG : null;
+      const status =
+        varianceG == null ? null : varianceG < 0 ? "short" : varianceG > 0 ? "surplus" : "on_target";
+      const shouldHaveCookedRawG =
+        neededCookedG != null && c.avg_cook_yield_pct
+          ? neededCookedG / (c.avg_cook_yield_pct / 100)
+          : null;
+      return {
+        component_id: c.id,
+        name: c.name,
+        station: c.station,
+        target_portion_g: c.target_portion_g,
+        avg_cook_yield_pct_alltime: c.avg_cook_yield_pct,
+        raw_weight_g: raw,
+        cooked_weight_g: cooked,
+        yield_pct_this_batch,
+        portions_possible_from_this_batch: portions_possible,
+        needed_cooked_g: neededCookedG,
+        variance_g: varianceG,
+        status,
+        should_have_cooked_raw_g: shouldHaveCookedRawG,
+      };
+    });
+
+  const nonKitchenRows = allComponents
+    .filter((c) => !c.kitchen_produced)
+    .map((c) => ({ component_id: c.id, name: c.name, station: c.station }));
+
+  const portionsLogged = kitchenRows
+    .map((r) => r.portions_possible_from_this_batch)
+    .filter((v) => v != null);
+  const achievable_meals_this_batch = portionsLogged.length ? Math.min(...portionsLogged) : null;
+  const bottleneck = portionsLogged.length
+    ? kitchenRows.find((r) => r.portions_possible_from_this_batch === achievable_meals_this_batch)
+    : null;
+
+  res.json({
+    batch,
+    meal: { id: meal.id, name: meal.name },
+    achievable_meals_this_batch,
+    bottleneck_component: bottleneck ? bottleneck.name : null,
+    kitchen_components: kitchenRows,
+    non_kitchen_components: nonKitchenRows,
   });
 });
 
