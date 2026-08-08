@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Hummus Fit — Yield Platform</title>
+<style>
+  :root{
+    --teal:#00877D; --teal-dark:#046b63; --orange:#F05A28; --orange-dark:#d6491d;
+    --navy:#182233; --cream:#FAF6F0; --card:#ffffff; --gray:#8a93a3;
+    --shadow: 0 10px 30px rgba(24,34,51,0.10), 0 2px 6px rgba(24,34,51,0.06);
+    --shadow-lg: 0 20px 50px rgba(24,34,51,0.18), 0 6px 14px rgba(24,34,51,0.10);
+  }
+  *{box-sizing:border-box;} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(180deg,var(--cream) 0%,#fff 400px);color:var(--navy);padding-bottom:100px;-webkit-tap-highlight-color:transparent;}
+  header{position:sticky;top:0;z-index:50;background:rgba(250,246,240,0.92);backdrop-filter:blur(10px);border-bottom:1px solid rgba(24,34,51,0.06);padding:14px 16px 10px;}
+  .brandrow{display:flex;align-items:center;justify-content:space-between;}
+  .brandname{font-weight:800;font-size:19px;letter-spacing:-.02em;}
+  .brandname .fit{color:var(--orange);} .brandname .hummus{color:var(--teal);}
+  .subtitle{font-size:12px;color:var(--gray);}
+  .tabs{display:flex;gap:8px;margin-top:12px;}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:999px;font-weight:800;font-size:13px;cursor:pointer;background:#fff;box-shadow:var(--shadow);color:var(--navy);}
+  .tab.active{background:var(--teal);color:#fff;}
+  main{padding:16px;max-width:720px;margin:0 auto;}
+  .btn{border:none;border-radius:999px;padding:12px 18px;font-weight:800;font-size:14px;cursor:pointer;box-shadow:var(--shadow);}
+  .btn-primary{background:var(--teal);color:#fff;} .btn-orange{background:var(--orange);color:#fff;}
+  .btn-secondary{background:#fff;color:var(--navy);border:1.5px solid rgba(24,34,51,.12);}
+  .btn-full{width:100%;}
+  .row2{display:flex;gap:10px;}
+  .meal-card{background:var(--card);border-radius:22px;box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden;}
+  .meal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;cursor:pointer;gap:10px;}
+  .meal-avatar{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,var(--teal),var(--teal-dark));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;flex:0 0 auto;}
+  .meal-title .name{font-weight:800;font-size:15px;}
+  .meal-title .meta{font-size:11px;color:var(--gray);font-weight:600;}
+  .meal-body{padding:0 18px 18px;}
+  .comp{background:#F8F6F2;border-radius:16px;padding:12px;margin-bottom:10px;}
+  .comp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-weight:800;font-size:13.5px;}
+  .comp-stat{font-size:11px;color:var(--gray);font-weight:700;}
+  .inline-form{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-top:6px;}
+  input, select{border:1.5px solid rgba(24,34,51,.12);border-radius:10px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit;}
+  input:focus, select:focus{border-color:var(--teal);}
+  .miniBtn{background:var(--teal);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12px;padding:8px 10px;cursor:pointer;}
+  .miniBtn.orange{background:var(--orange);}
+  .yieldTag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:#E7F5F2;color:var(--teal-dark);}
+  .gapTag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:#FFF1E8;color:var(--orange-dark);}
+  .section-label{font-size:11px;font-weight:800;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;}
+  .calc-card{background:#fff;border-radius:22px;box-shadow:var(--shadow);padding:18px;}
+  .result{background:linear-gradient(135deg,#F8F6F2,#F1EEE7);border-radius:16px;padding:14px;margin-top:14px;}
+  .result-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(24,34,51,.06);font-size:13.5px;}
+  .result-row:last-child{border-bottom:none;}
+  .result-row .val{font-weight:900;color:var(--teal-dark);}
+  .headline{font-size:26px;font-weight:900;letter-spacing:-.02em;margin:6px 4px 14px;}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:12px 20px;border-radius:999px;font-weight:700;font-size:13px;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:.25s;z-index:100;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .modal-bg{position:fixed;inset:0;background:rgba(24,34,51,.5);z-index:80;display:none;align-items:flex-end;justify-content:center;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:520px;padding:22px 20px 28px;max-height:85vh;overflow-y:auto;}
+  .modal h3{margin:0 0 4px;font-size:18px;font-weight:900;}
+  .xbtn{background:#F1EEE7;border:none;border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;color:var(--gray);}
+  .warn{background:#FFF7ED;border:1px solid #FFE4C7;border-radius:12px;padding:10px 12px;font-size:12px;color:#9a5b1a;margin-top:12px;}
+  .empty{text-align:center;color:var(--gray);padding:40px 20px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="brandrow">
+    <div>
+      <div class="brandname"><span class="hummus">Hummus</span><span class="fit"> FIT</span></div>
+      <div class="subtitle">Yield Platform</div>
+    </div>
+    <button class="btn btn-secondary" style="padding:8px 14px;font-size:12px;" onclick="openAddMeal()">＋ Meal</button>
+  </div>
+  <div class="tabs">
+    <div class="tab active" id="tab-meals" onclick="switchTab('meals')">Meals & Logging</div>
+    <div class="tab" id="tab-calc" onclick="switchTab('calc')">Calculator</div>
+  </div>
+</header>
+
+<main>
+  <div id="view-meals">
+    <div class="headline">Log It Once.<br>Trust It Forever.</div>
+    <div id="mealList"></div>
+  </div>
+
+  <div id="view-calc" style="display:none;">
+    <div class="headline">The Calculator.</div>
+    <div class="calc-card">
+      <div class="section-label">Meal</div>
+      <select id="calcMeal" style="width:100%;" onchange="renderCalc()"></select>
+
+      <div class="section-label">What do you want to know?</div>
+      <div class="row2">
+        <button class="btn btn-secondary btn-full" id="modeForMeals" onclick="setCalcMode('forMeals')">I need N meals</button>
+        <button class="btn btn-secondary btn-full" id="modeFromRaw" onclick="setCalcMode('fromRaw')">I have X raw</button>
+      </div>
+
+      <div id="calcInputs" style="margin-top:14px;"></div>
+      <button class="btn btn-orange btn-full" style="margin-top:14px;" onclick="runCalc()">Calculate</button>
+      <div id="calcResult"></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="addMealModal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;"><h3>Add a Meal</h3><button class="xbtn" onclick="closeModal('addMealModal')">✕</button></div>
+    <div class="section-label">Meal Name</div>
+    <input id="newMealName" style="width:100%;" placeholder="e.g. Basmati Rice / Ground Beef Bowl">
+    <div class="section-label">Components (one per line)</div>
+    <textarea id="newMealComponents" rows="4" style="width:100%;border:1.5px solid rgba(24,34,51,.12);border-radius:12px;padding:10px;font-family:inherit;" placeholder="Basmati Rice&#10;Ground Beef&#10;Pickles&#10;Onion"></textarea>
+    <div class="row2" style="margin-top:14px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('addMealModal')">Cancel</button>
+      <button class="btn btn-primary btn-full" onclick="addMeal()">Add</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let meals = [];
+let openCards = new Set();
+let calcMode = "forMeals";
+
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function haptic(p){ if(navigator.vibrate){ try{navigator.vibrate(p||10);}catch(e){} } }
+function switchTab(name){
+  document.getElementById('tab-meals').classList.toggle('active', name==='meals');
+  document.getElementById('tab-calc').classList.toggle('active', name==='calc');
+  document.getElementById('view-meals').style.display = name==='meals' ? '' : 'none';
+  document.getElementById('view-calc').style.display = name==='calc' ? '' : 'none';
+  if(name==='calc') populateCalcMeals();
+}
+
+async function loadMeals(){
+  const res = await fetch('/api/meals');
+  meals = await res.json();
+  renderMeals();
+}
+
+function initials(name){ return name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join(''); }
+function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmt(n, d){ if(n==null || isNaN(n)) return '—'; return Number(n).toFixed(d==null?1:d); }
+
+function renderMeals(){
+  const wrap = document.getElementById('mealList');
+  if(!meals.length){ wrap.innerHTML = '<div class="empty">No meals yet. Tap “＋ Meal” to add your first pilot meal.</div>'; return; }
+  wrap.innerHTML = meals.map(m => `
+    <div class="meal-card">
+      <div class="meal-head" onclick="toggleCard(${m.id})">
+        <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+          <div class="meal-avatar">${initials(m.name)}</div>
+          <div class="meal-title"><div class="name">${esc(m.name)}</div><div class="meta">${m.components.length} components</div></div>
+        </div>
+        <span style="color:#8a93a3;">${openCards.has(m.id)?'▲':'▼'}</span>
+      </div>
+      ${openCards.has(m.id) ? renderMealBody(m) : ''}
+    </div>
+  `).join('');
+}
+
+function renderMealBody(m){
+  return `<div class="meal-body">
+    ${m.components.map(c => `
+      <div class="comp">
+        <div class="comp-head">
+          <span>${esc(c.name)}</span>
+          <span>
+            ${c.avg_cook_yield_pct!=null ? `<span class="yieldTag">${fmt(c.avg_cook_yield_pct)}% yield</span>` : ''}
+            ${c.crew_gap_pct!=null ? `<span class="gapTag">${fmt(c.crew_gap_pct)}% crew gap</span>` : ''}
+          </span>
+        </div>
+        <div class="comp-stat">Target portion: ${c.target_portion_g ? c.target_portion_g+'g' : 'not locked'}</div>
+
+        <div class="inline-form">
+          <input type="number" placeholder="Raw g" id="raw-${c.id}">
+          <input type="number" placeholder="Cooked g" id="cooked-${c.id}">
+          <button class="miniBtn" onclick="logCook(${c.id})">Log Cook</button>
+        </div>
+        <div class="inline-form">
+          <input type="number" placeholder="Crew A g" id="ca-${c.id}">
+          <input type="number" placeholder="Crew B g" id="cb-${c.id}">
+          <button class="miniBtn orange" onclick="logPortion(${c.id})">Log Portion</button>
+        </div>
+        <div class="inline-form" style="grid-template-columns:1fr auto;">
+          <input type="number" placeholder="Lock target portion (g)" id="target-${c.id}" value="${c.target_portion_g||''}">
+          <button class="miniBtn" onclick="lockTarget(${c.id})">Lock</button>
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function toggleCard(id){
+  if(openCards.has(id)) openCards.delete(id); else openCards.add(id);
+  haptic(10); renderMeals();
+}
+
+async function logCook(componentId){
+  const raw = parseFloat(document.getElementById('raw-'+componentId).value);
+  const cooked = parseFloat(document.getElementById('cooked-'+componentId).value);
+  if(!raw || !cooked){ toast('Enter both raw and cooked weight'); return; }
+  await fetch(`/api/components/${componentId}/cook-log`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({raw_weight_g:raw, cooked_weight_g:cooked})});
+  haptic([10,20,10]); toast('Cook yield logged');
+  await loadMeals();
+}
+
+async function logPortion(componentId){
+  const a = parseFloat(document.getElementById('ca-'+componentId).value);
+  const b = parseFloat(document.getElementById('cb-'+componentId).value);
+  if(a) await fetch(`/api/components/${componentId}/portion-log`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({crew:'Crew A', weight_g:a})});
+  if(b) await fetch(`/api/components/${componentId}/portion-log`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({crew:'Crew B', weight_g:b})});
+  if(!a && !b){ toast('Enter at least one crew weight'); return; }
+  haptic([10,20,10]); toast('Portion weights logged');
+  await loadMeals();
+}
+
+async function lockTarget(componentId){
+  const val = parseFloat(document.getElementById('target-'+componentId).value);
+  if(!val){ toast('Enter a target weight first'); return; }
+  await fetch(`/api/components/${componentId}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_portion_g: val})});
+  haptic(15); toast('Target portion locked');
+  await loadMeals();
+}
+
+function openAddMeal(){ document.getElementById('addMealModal').classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+async function addMeal(){
+  const name = document.getElementById('newMealName').value.trim();
+  const compsRaw = document.getElementById('newMealComponents').value.trim();
+  if(!name){ toast('Name the meal first'); return; }
+  const components = compsRaw.split('\n').map(s=>s.trim()).filter(Boolean).map(n=>({name:n}));
+  await fetch('/api/meals', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, components})});
+  document.getElementById('newMealName').value=''; document.getElementById('newMealComponents').value='';
+  closeModal('addMealModal'); haptic(15); toast('Meal added');
+  await loadMeals();
+}
+
+// --- Calculator ---
+function populateCalcMeals(){
+  const sel = document.getElementById('calcMeal');
+  sel.innerHTML = meals.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+  renderCalc();
+}
+function setCalcMode(mode){
+  calcMode = mode;
+  document.getElementById('modeForMeals').className = 'btn btn-full ' + (mode==='forMeals'?'btn-primary':'btn-secondary');
+  document.getElementById('modeFromRaw').className = 'btn btn-full ' + (mode==='fromRaw'?'btn-primary':'btn-secondary');
+  renderCalc();
+}
+function renderCalc(){
+  setCalcModeButtons();
+  const mealId = document.getElementById('calcMeal').value;
+  const meal = meals.find(m => String(m.id)===String(mealId));
+  const box = document.getElementById('calcInputs');
+  document.getElementById('calcResult').innerHTML = '';
+  if(!meal){ box.innerHTML=''; return; }
+  if(calcMode==='forMeals'){
+    box.innerHTML = `<div class="section-label">How many finished meals?</div><input type="number" id="calcTargetMeals" style="width:100%;" placeholder="e.g. 500">`;
+  } else {
+    box.innerHTML = `<div class="section-label">Which component, and how much raw weight (g) do you have?</div>
+      <select id="calcComponent" style="width:100%;margin-bottom:8px;">${meal.components.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}</select>
+      <input type="number" id="calcRawAvailable" style="width:100%;" placeholder="e.g. 22500">`;
+  }
+}
+function setCalcModeButtons(){
+  document.getElementById('modeForMeals').className = 'btn btn-full ' + (calcMode==='forMeals'?'btn-primary':'btn-secondary');
+  document.getElementById('modeFromRaw').className = 'btn btn-full ' + (calcMode==='fromRaw'?'btn-primary':'btn-secondary');
+}
+
+async function runCalc(){
+  const mealId = document.getElementById('calcMeal').value;
+  if(!mealId){ toast('Add a meal first'); return; }
+  let body;
+  if(calcMode==='forMeals'){
+    const n = parseFloat(document.getElementById('calcTargetMeals').value);
+    if(!n){ toast('Enter a target meal count'); return; }
+    body = {mode:'forMeals', targetMeals:n};
+  } else {
+    const componentName = document.getElementById('calcComponent').value;
+    const raw = parseFloat(document.getElementById('calcRawAvailable').value);
+    if(!raw){ toast('Enter raw weight available'); return; }
+    body = {mode:'fromRaw', componentName, rawWeightAvailable:raw};
+  }
+  const res = await fetch(`/api/meals/${mealId}/calculate`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const data = await res.json();
+  const resultBox = document.getElementById('calcResult');
+  if(data.error){ resultBox.innerHTML = `<div class="warn">${esc(data.error)}</div>`; return; }
+
+  let headline = '';
+  if(data.mode==='forMeals'){
+    headline = `<div class="result-row"><span>Target</span><span class="val">${data.target_meals} meals</span></div>`;
+  } else {
+    headline = `<div class="result-row"><span>Max meals from ${esc(data.based_on_component)}</span><span class="val">${data.max_meals_possible} meals</span></div>`;
+  }
+
+  const rows = data.components.map(c => `
+    <div class="result-row">
+      <span>${esc(c.component)} — cook this much raw</span>
+      <span class="val">${c.raw_weight_to_cook_g!=null ? fmt(c.raw_weight_to_cook_g,0)+'g' : 'no yield data'}</span>
+    </div>
+  `).join('');
+
+  resultBox.innerHTML = `<div class="result">${headline}${rows}</div>
+    ${data.warnings.length ? `<div class="warn">${data.warnings.map(esc).join('<br>')}</div>` : ''}`;
+  haptic([10,30,10]);
+}
+
+loadMeals();
+</script>
+</body>
+</html>
